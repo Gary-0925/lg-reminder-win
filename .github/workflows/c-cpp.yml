@@ -23,4 +23,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: lg-reminder-windows
-        path: packer/lg-reminder/lg-reminder.exe
+        path: lg-reminder.exe
