@@ -15,11 +15,21 @@ lg-reminder
 #define lg_reminder_version "0.3"
 #define lg_reminder_author "Gary0"
 
-#include <bits/stdc++.h>
+#include <iostream>
+#include <string>
 #include <windows.h>
 #include <winhttp.h>
+#include <fstream>
+#include <sstream>
+#include <thread>
+#include <chrono>
 #include <shlobj.h>
 #include <commctrl.h>
+#include <cstring>
+#include <cctype>
+#include <vector>
+#include <regex>
+#include <iomanip>
 #pragma comment(lib, "winhttp.lib")
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "shell32.lib")
