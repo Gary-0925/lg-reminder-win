@@ -15,8 +15,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/o)
 
 # 添加源文件
 target_sources(lg-reminder PRIVATE
-    packer/res/lg-reminder.cpp
-    packer/res/lg-reminder.rc
+    res/lg-reminder.cpp
+    res/lg-reminder.rc
 )
 
 # 设置属性
