@@ -1,26 +1,24 @@
-name: Build
+name: Debug Build
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+on: [push]
 
 jobs:
-  build-windows:
+  debug-build:
     runs-on: windows-latest
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Configure CMake
+    - name: Show structure
+      run: |
+        Get-ChildItem -Recurse | Select-Object FullName
+    
+    - name: Configure
       run: cmake -B build -A Win32
     
     - name: Build
-      run: cmake --build build --config Release
+      run: cmake --build build --config Release --verbose
     
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: lg-reminder-windows
-        path: lg-reminder.exe
+    - name: Find exe
+      run: |
+        Get-ChildItem -Recurse -Filter *.exe | Select-Object FullName
