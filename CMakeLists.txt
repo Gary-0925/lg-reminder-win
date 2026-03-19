@@ -1,14 +1,17 @@
 cmake_minimum_required(VERSION 3.16)
 project(lg-reminder VERSION 1.0.0 LANGUAGES CXX)
 
+# 设置C++标准
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 移除 WIN32 标志，改为控制台程序
+add_executable(${PROJECT_NAME} ${SOURCES})
+
 # 设置输出目录变量
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lg-reminder)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/o)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/o)
-
-# 设置C++标准
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 定义可执行文件
 add_executable(lg-reminder WIN32)
