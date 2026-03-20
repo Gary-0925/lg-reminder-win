@@ -1,6 +1,6 @@
 省流：在Windows弹窗显示洛谷私信的工具可以到[这里](https://github.com/Gary-0925/lg-reminder-win/tags)下载运行后按说明填写配置再运行就能用了。
 
-[洛谷地址](https://www.luogu.com.cn/article/ftltn0ld) 。
+[洛谷地址](https://www.luogu.com.cn/article/ftltn0ld)。
 
 ---
 
