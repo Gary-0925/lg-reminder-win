@@ -4,6 +4,8 @@
 
 省流：在Windows弹窗显示洛谷私信的工具可以到[这里](https://github.com/Gary-0925/lg-reminder/tags)下载运行后按说明填写配置再运行就能用了。
 
+~~明目张胆要 star。QAQ~~
+
 ---
 
 ## 总览
