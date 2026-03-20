@@ -406,7 +406,6 @@ vector<int> LoadHistory() {
 }
 
 vector<Msg> findnew(vector<Msg> cur, vector<int> lst) {
-    if (lst.empty()) return {};
     vector<Msg> n;
     for (auto &m : cur) {
         bool ok = false;
@@ -446,7 +445,7 @@ void CheckMessages() {
                     }
                     WriteLog(logmsg);
                     
-                    noti(nw, g_username);
+                    if (!g_history_ids.empty()) noti(nw, g_username);
                     g_history_ids = ids;
                     SaveHistory(ids);
                 }
