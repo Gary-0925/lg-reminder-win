@@ -1,18 +1,18 @@
 /*
 lg-reminder
-ÔÚ Windows Í¨Öªµ¯´°ÌáĞÑÂå¹ÈË½ĞÅ
+åœ¨ Windows é€šçŸ¥å¼¹çª—æé†’æ´›è°·ç§ä¿¡
 ==================================================
-@version v.0.4
+@version v.0.5
 @author Gary0
 @license MIT
-±¾½Å±¾ÓÉÂå¹È @Gary0 ¿ª·¢
-¸ĞĞ»Âå¹È @PenaltyKing Ìá¹©µÄË¼Â·¼°½¨Òé
+æœ¬è„šæœ¬ç”±æ´›è°· @Gary0 å¼€å‘
+æ„Ÿè°¢æ´›è°· @PenaltyKing æä¾›çš„æ€è·¯åŠå»ºè®®
 ==================================================
-±¾½Å±¾²»»áµÁÈ¡ÄúµÄ cookie
-Ê¹ÓÃÁË AI ¸¨Öú¿ª·¢£¬¼Æ»®Ôö¼Ó Ä ÄÌáĞÑºÍÍ¨ÖªÌáĞÑµÈ¹¦ÄÜ
+æœ¬è„šæœ¬ä¸ä¼šç›—å–æ‚¨çš„ cookie
+ä½¿ç”¨äº† AI è¾…åŠ©å¼€å‘ï¼Œè®¡åˆ’å¢åŠ çŠ‡çŠ‡æé†’å’Œé€šçŸ¥æé†’ç­‰åŠŸèƒ½
 ==================================================
 */
-#define lg_reminder_version "v.0.4"
+#define lg_reminder_version "v.0.5"
 #define lg_reminder_author "Gary0"
 
 #include <iostream>
@@ -45,35 +45,90 @@ string now()
 	return b;
 }
 
-string gbk(string u)
+void SetConsoleUTF8()
 {
-	if (u.empty()) return "";
-	int wl = MultiByteToWideChar(CP_UTF8, 0, u.c_str(), -1, NULL, 0);
-	if (!wl) return u;
-	wchar_t *ws = new wchar_t[wl];
-	MultiByteToWideChar(CP_UTF8, 0, u.c_str(), -1, ws, wl);
-	int gl = WideCharToMultiByte(CP_ACP, 0, ws, -1, NULL, 0, NULL, NULL);
-	if (!gl) { delete[] ws; return u; }
-	char *gs = new char[gl];
-	WideCharToMultiByte(CP_ACP, 0, ws, -1, gs, gl, NULL, NULL);
-	string r(gs); delete[] ws; delete[] gs; return r;
+#ifdef _WIN32
+	SetConsoleOutputCP(CP_UTF8);
+	SetConsoleCP(CP_UTF8);
+	HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+	DWORD dwMode = 0;
+	GetConsoleMode(hOut, &dwMode);
+	dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+	SetConsoleMode(hOut, dwMode);
+#endif
+}
+
+string utf8_to_system(const string &utf8_str)
+{
+	if (utf8_str.empty())
+		return "";
+	int wlen = MultiByteToWideChar(CP_UTF8, 0, utf8_str.c_str(), -1, NULL, 0);
+	if (!wlen)
+		return utf8_str;
+	wchar_t *wstr = new wchar_t[wlen];
+	MultiByteToWideChar(CP_UTF8, 0, utf8_str.c_str(), -1, wstr, wlen);
+	int glen = WideCharToMultiByte(CP_ACP, 0, wstr, -1, NULL, 0, NULL, NULL);
+	if (!glen)
+	{
+		delete[] wstr;
+		return utf8_str;
+	}
+	char *gstr = new char[glen];
+	WideCharToMultiByte(CP_ACP, 0, wstr, -1, gstr, glen, NULL, NULL);
+	string result(gstr);
+	delete[] wstr;
+	delete[] gstr;
+	return result;
+}
+
+string system_to_utf8(const string &sys_str)
+{
+	if (sys_str.empty())
+		return "";
+	int wlen = MultiByteToWideChar(CP_ACP, 0, sys_str.c_str(), -1, NULL, 0);
+	if (!wlen)
+		return sys_str;
+	wchar_t *wstr = new wchar_t[wlen];
+	MultiByteToWideChar(CP_ACP, 0, sys_str.c_str(), -1, wstr, wlen);
+	int ulen = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
+	if (!ulen)
+	{
+		delete[] wstr;
+		return sys_str;
+	}
+	char *ustr = new char[ulen];
+	WideCharToMultiByte(CP_UTF8, 0, wstr, -1, ustr, ulen, NULL, NULL);
+	string result(ustr);
+	delete[] wstr;
+	delete[] ustr;
+	return result;
 }
 
 string dec(string s)
 {
 	string r;
 	for (size_t i = 0; i < s.length(); i++)
+	{
 		if (s[i] == '\\' && i + 5 < s.length() && s[i + 1] == 'u')
 		{
 			char h[5] = {s[i + 2], s[i + 3], s[i + 4], s[i + 5], 0};
 			int c = stoi(h, nullptr, 16);
 			if (c < 0x80) r += (char)c;
-			else if (c < 0x800) r += (char)(0xC0 | (c >> 6)), r += (char)(0x80 | (c & 0x3F));
-			else r += (char)(0xE0 | (c >> 12)), r += (char)(0x80 | ((c >> 6) & 0x3F)), r += (char)(0x80 | (c & 0x3F));
+			else if (c < 0x800)
+			{
+				r += (char)(0xC0 | (c >> 6));
+				r += (char)(0x80 | (c & 0x3F));
+			}
+			else
+			{
+				r += (char)(0xE0 | (c >> 12));
+				r += (char)(0x80 | ((c >> 6) & 0x3F));
+				r += (char)(0x80 | (c & 0x3F));
+			}
 			i += 5;
 		}
 		else r += s[i];
-	for (char c : r) if ((unsigned char)c >= 0x80) return gbk(r);
+	}
 	return r;
 }
 
@@ -186,24 +241,36 @@ vector<Msg> parse(string j)
 
 void noti(vector<Msg> v, string us)
 {
-	if (v.empty()) return;
-	for (auto &m : v) if (m.name != us)
+	if (v.empty())
+		return;
+	for (auto &m : v)
 	{
-		string t = "Âå¹ÈĞÂË½ĞÅ - À´×Ô " + m.name, c = m.con.empty() ? "ÄúÓĞÒ»ÌõĞÂÏûÏ¢" : m.con;
-		NOTIFYICONDATAA n = {};
-		n.cbSize = sizeof(NOTIFYICONDATAA);
-		n.hWnd = GetConsoleWindow();
-		n.uID = m.id;
-		n.uFlags = NIF_INFO | NIF_ICON | NIF_TIP;
-		n.dwInfoFlags = NIIF_INFO | NIIF_LARGE_ICON;
-		n.uTimeout = 5000;
-		strncpy(n.szInfoTitle, t.c_str(), sizeof(n.szInfoTitle) - 1);
-		strncpy(n.szInfo, c.c_str(), sizeof(n.szInfo) - 1);
-		strncpy(n.szTip, "lg-reminder", sizeof(n.szTip) - 1);
-		HICON h = LoadIcon(NULL, IDI_INFORMATION);
-		if (h) n.hIcon = h, n.uFlags |= NIF_ICON;
-		Shell_NotifyIconA(NIM_ADD, &n);
-		Sleep(2000), Shell_NotifyIconA(NIM_DELETE, &n), Sleep(500);
+		string name_sys = utf8_to_system(m.name);
+		string us_sys = utf8_to_system(us);
+
+		if (name_sys != us_sys)
+		{
+			string t = utf8_to_system("æ´›è°·æ–°ç§ä¿¡ - æ¥è‡ª " + name_sys);
+			string c = m.con.empty() ? utf8_to_system("æ‚¨æœ‰ä¸€æ¡æ–°æ¶ˆæ¯") : utf8_to_system(m.con);
+
+			NOTIFYICONDATAA n = {};
+			n.cbSize = sizeof(NOTIFYICONDATAA);
+			n.hWnd = GetConsoleWindow();
+			n.uID = m.id;
+			n.uFlags = NIF_INFO | NIF_ICON | NIF_TIP;
+			n.dwInfoFlags = NIIF_INFO | NIIF_LARGE_ICON;
+			n.uTimeout = 5000;
+			strncpy(n.szInfoTitle, t.c_str(), sizeof(n.szInfoTitle) - 1);
+			strncpy(n.szInfo, c.c_str(), sizeof(n.szInfo) - 1);
+			strncpy(n.szTip, "lg-reminder", sizeof(n.szTip) - 1);
+			HICON h = LoadIcon(NULL, IDI_INFORMATION);
+			if (h)
+				n.hIcon = h, n.uFlags |= NIF_ICON;
+			Shell_NotifyIconA(NIM_ADD, &n);
+			Sleep(2000);
+			Shell_NotifyIconA(NIM_DELETE, &n);
+			Sleep(500);
+		}
 	}
 }
 
@@ -247,39 +314,95 @@ bool cfg(string &c, string &u, int &t)
 		ofstream o("config.txt");
 		if (o.is_open())
 		{
-			o << "# lg-reminder ÅäÖÃ\n\n";
-			o << "cookie=ÄãµÄÍêÕûcookie\n\n";
-			o << "# ÓÃ»§Ãû\nusername=ÄãµÄÂå¹ÈÓÃ»§Ãû\n\n";
-			o << "# ÂÖÑ¯¼ä¸ô\ninterval=15";
-			o.close();
+			string config =
+				"# lg-reminder é…ç½®\n\n"
+				"cookie=ä½ çš„å®Œæ•´cookie\n\n"
+				"# ç”¨æˆ·å\nusername=ä½ çš„æ´›è°·ç”¨æˆ·å\n\n"
+				"# è½®è¯¢é—´éš”\ninterval=15";
+			o << utf8_to_system(config);
 			o.close();
 		}
 		return false;
 	}
-	string l;
-	while (getline(f, l))
+	string content;
+	char buffer[4096];
+	while (f.read(buffer, sizeof(buffer)))
 	{
-		if (l.empty() || l[0] == '#') continue;
-		size_t p = l.find('='); if (p == string::npos) continue;
-		string k = l.substr(0, p), v = l.substr(p + 1);
-		if (k == "cookie") c = v;
-		else if (k == "username") u = v;
-		else if (k == "interval") t = stoi(v);
+		content.append(buffer, f.gcount());
 	}
+	content.append(buffer, f.gcount());
 	f.close();
-	return !c.empty() && c.find("ÄãµÄ") == string::npos;
+
+	if (content.size() >= 3 &&
+		(unsigned char)content[0] == 0xEF &&
+		(unsigned char)content[1] == 0xBB &&
+		(unsigned char)content[2] == 0xBF)
+	{
+		content = content.substr(3);
+	}
+
+	stringstream ss(content);
+	string line;
+	while (getline(ss, line))
+	{
+		if (!line.empty() && line.back() == '\r')
+		{
+			line.pop_back();
+		}
+
+		if (line.empty() || line[0] == '#')
+			continue;
+		size_t p = line.find('=');
+		if (p == string::npos)
+			continue;
+
+		string k = line.substr(0, p);
+		string v = line.substr(p + 1);
+
+		if (k == "cookie")
+			c = v;
+		else if (k == "username")
+			u = v;
+		else if (k == "interval")
+			t = stoi(v);
+	}
+
+	return !c.empty() && c.find("ä½ çš„") == string::npos;
 }
 
 void save(vector<int> v)
 {
-	ofstream f("data.txt");
-	if (f.is_open()) { for (int i : v) f << i << "\n"; f.close(); }
+	ofstream f("data.txt", ios::binary);
+	if (f.is_open())
+	{
+		for (int i : v)
+		{
+			f << i << "\n";
+		}
+		f.close();
+	}
 }
 
 vector<int> load()
 {
-	vector<int> v; ifstream f("data.txt");
-	if (f.is_open()) { int x; while (f >> x) v.push_back(x); f.close(); }
+	vector<int> v;
+	ifstream f("data.txt", ios::binary);
+	if (f.is_open())
+	{
+		string line;
+		while (getline(f, line))
+		{
+			if (!line.empty() && line.back() == '\r')
+			{
+				line.pop_back();
+			}
+			if (!line.empty())
+			{
+				v.push_back(stoi(line));
+			}
+		}
+		f.close();
+	}
 	return v;
 }
 
@@ -297,41 +420,51 @@ vector<Msg> findnew(vector<Msg> cur, vector<int> lst)
 }
 
 int main()
-{	
-	SetConsoleOutputCP(CP_ACP), SetConsoleCP(CP_ACP), SetConsoleTitleA("lg-reminder");
+{
+	SetConsoleUTF8();
+
+	SetConsoleTitleA("lg-reminder");
+
 	HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_CURSOR_INFO ci;
-	GetConsoleCursorInfo(h, &ci); ci.bVisible = 0; SetConsoleCursorInfo(h, &ci);
-	
+	GetConsoleCursorInfo(h, &ci);
+	ci.bVisible = 0;
+	SetConsoleCursorInfo(h, &ci);
+
 	SetConsoleTextAttribute(h, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
 	cout << "lg-reminder (" << lg_reminder_version << " by " << lg_reminder_author << ")\n";
 	cout << "==================================================\n\n";
 	SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
-	
-	string ck, us; int itv = 30;
+
+	string ck, us;
+	int itv = 30;
 	if (!cfg(ck, us, itv))
 	{
-		cout << "´íÎó£ºÅäÖÃ¼ÓÔØÊ§°Ü\n\n";
-		cout << "Çë±à¼­ config.txt ÎÄ¼ş£¬ÌîÈëÄúµÄ cookie\n\n";
-		cout << "ÈçºÎ»ñÈ¡ cookie£º\n";
-		cout << "1. ÔÚä¯ÀÀÆ÷ÖĞµÇÂ¼ luogu.com.cn\n";
-		cout << "2. °´ F12 ´ò¿ª¿ª·¢Õß¹¤¾ß\n";
-		cout << "3. ÇĞ»»µ½¡°ÍøÂç¡±±êÇ©£¬Ë¢ĞÂÒ³Ãæ\n";
-		cout << "4. µã»÷ÈÎÒâÇëÇó£¬ÔÚ Request Headers ÖĞÕÒµ½¡°Cookie¡±\n";
-		cout << "5. ¸´ÖÆ cookie ÄÚÈİµ½ config.txt\n";
-		cout << "\n°´ÈÎÒâ¼üÍË³ö..." << endl;
-		system("pause > nul"); return 1;
+		cout << "é”™è¯¯ï¼šé…ç½®åŠ è½½å¤±è´¥\n\n";
+		cout << "è¯·ç¼–è¾‘ config.txt æ–‡ä»¶ï¼Œå¡«å…¥æ‚¨çš„ cookie\n\n";
+		cout << "å¦‚ä½•è·å– cookieï¼š\n";
+		cout << "1. åœ¨æµè§ˆå™¨ä¸­ç™»å½•æ´›è°·å¹¶è¿›å…¥ç§ä¿¡é¡µé¢\n";
+		cout << "2. æŒ‰ F12 æ‰“å¼€å¼€å‘è€…å·¥å…·\n";
+		cout << "3. åˆ‡æ¢åˆ°\"ç½‘ç»œ\"æ ‡ç­¾ï¼Œåˆ·æ–°é¡µé¢\n";
+		cout << "4. ç‚¹è¿›åç§°æ˜¯\"chat\"çš„è¯·æ±‚ï¼Œå¾€ä¸‹ç¿»ï¼Œåœ¨ Request Headers ä¸­æ‰¾åˆ°\"Cookie\"\n";
+		cout << "5. å¤åˆ¶å®Œæ•´ cookie å†…å®¹åˆ° config.txt\n";
+		cout << "\næŒ‰ä»»æ„é”®é€€å‡º..." << endl;
+		system("pause > nul");
+		return 1;
 	}
-	
+
 	vector<int> lst = load();
-	cout << "Æô¶¯ĞÅÏ¢:\n  ÂÖÑ¯¼ä¸ô: " << itv << " Ãë\n  ÀúÊ·ÏûÏ¢: " << lst.size() << " Ìõ\n\n¿ªÊ¼¼àÌı...\n°´ Ctrl+C ÍË³ö\n==================================================\n";
-	
-	int cnt = 0; bool fr = lst.empty();
+	cout << "å¯åŠ¨ä¿¡æ¯:\n  è½®è¯¢é—´éš”: " << itv << " ç§’\n  å†å²æ¶ˆæ¯: " << lst.size() << " æ¡\n\nå¼€å§‹ç›‘å¬...\næŒ‰ Ctrl+C é€€å‡º\n==================================================\n";
+
+	int cnt = 0;
+	bool fr = lst.empty();
 	while (1)
 	{
-		cnt++; string htm;
-		cout << "[" << now() << "] µÚ " << cnt << " ´Î¼ì²é... "; cout.flush();
-		
+		cnt++;
+		string htm;
+		cout << "[" << now() << "] ç¬¬ " << cnt << " æ¬¡æ£€æŸ¥... ";
+		cout.flush();
+
 		if (http(ck, htm))
 		{
 			string e = ext(htm);
@@ -341,31 +474,46 @@ int main()
 				vector<Msg> v = parse(j);
 				if (!v.empty())
 				{
-					cout << "·¢ÏÖ " << v.size() << " ÌõÏûÏ¢";
+					cout << "å‘ç° " << v.size() << " æ¡æ¶ˆæ¯";
 					vector<int> ids;
-					for (auto &m : v) ids.push_back(m.id);
+					for (auto &m : v)
+						ids.push_back(m.id);
 					vector<Msg> nw = findnew(v, lst);
 					if (!nw.empty())
 					{
-						if (fr) cout << " [Ê×´ÎÔËĞĞ£¬¼ÇÂ¼ " << nw.size() << " Ìõ]", fr = 0;
+						if (fr)
+						{
+							cout << " [é¦–æ¬¡è¿è¡Œï¼Œè®°å½• " << nw.size() << " æ¡]";
+							fr = 0;
+						}
 						else
 						{
-							cout << " [ĞÂÏûÏ¢: " << nw.size() << " Ìõ]\n  ©¸©¤ À´×Ô:";
-							for (auto &m : nw) cout << " " << m.name;
+							cout << " [æ–°æ¶ˆæ¯: " << nw.size() << " æ¡]\n  â””â”€ æ¥è‡ª:";
+							for (auto &m : nw)
+							{
+								cout << " " << m.name;
+							}
 							noti(nw, us);
 						}
-						lst = ids, save(ids);
+						lst = ids;
+						save(ids);
 					}
 					cout << endl;
 				}
-				else cout << "´íÎó£º½âÎöÊ§°Ü" << endl;
+				else
+				{
+					cout << "é”™è¯¯ï¼šè§£æå¤±è´¥ï¼ŒæœªçŸ¥é—®é¢˜" << endl;
+				}
 			}
-			else cout << "ÎŞÏûÏ¢Êı¾İ" << endl;
+			else
+			{
+				cout << "é”™è¯¯ï¼šæ— æ¶ˆæ¯æ•°æ®ï¼Œè¯·æ£€æŸ¥é…ç½®æˆ–ç½‘ç»œ" << endl;
+			}
 		}
 		else
 		{
 			SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_INTENSITY);
-			cout << "´íÎó£ºÇëÇóÊ§°Ü" << endl;
+			cout << "é”™è¯¯ï¼šè¯·æ±‚å¤±è´¥ï¼Œè¯·æ£€æŸ¥é…ç½®æˆ–ç½‘ç»œ" << endl;
 			SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 		}
 		this_thread::sleep_for(chrono::seconds(itv));
