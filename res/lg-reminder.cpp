@@ -566,23 +566,38 @@ void ShowSettingsDialog(HWND hwnd) {
 
 void HideConsole() {
     if (g_console_visible && g_console_hwnd) {
-        // 完全隐藏控制台窗口
+        // 方法1: 使用 ShowWindow 隐藏
         ShowWindow(g_console_hwnd, SW_HIDE);
+        
+        // 方法2: 同时隐藏任务栏按钮
+        SetWindowLong(g_console_hwnd, GWL_EXSTYLE, 
+                      GetWindowLong(g_console_hwnd, GWL_EXSTYLE) | WS_EX_TOOLWINDOW);
+        
         g_console_visible = false;
         
         if (g_nid.hWnd) {
             strncpy_s(g_nid.szTip, "lg-reminder - 后台运行中", sizeof(g_nid.szTip) - 1);
             Shell_NotifyIconA(NIM_MODIFY, &g_nid);
         }
+        
+        // 可选：输出到调试信息
+        OutputDebugStringA("Console hidden\n");
     }
 }
 
 void ShowConsole() {
     if (!g_console_visible && g_console_hwnd) {
+        // 恢复普通窗口样式
+        SetWindowLong(g_console_hwnd, GWL_EXSTYLE, 
+                      GetWindowLong(g_console_hwnd, GWL_EXSTYLE) & ~WS_EX_TOOLWINDOW);
+        
         // 显示控制台窗口
         ShowWindow(g_console_hwnd, SW_SHOW);
-        // 确保窗口在前台
+        
+        // 确保窗口在前台并刷新
         SetForegroundWindow(g_console_hwnd);
+        BringWindowToTop(g_console_hwnd);
+        
         g_console_visible = true;
         
         if (g_nid.hWnd) {
@@ -598,6 +613,9 @@ void ShowConsole() {
         cout << "历史消息: " << g_history_ids.size() << " 条\n";
         cout << "==================================================\n" << endl;
         SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+        
+        // 刷新控制台输出
+        fflush(stdout);
     }
 }
 
