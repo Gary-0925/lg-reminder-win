@@ -5,8 +5,8 @@
 
 // 版本信息
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION     0,4,0,0
-PRODUCTVERSION  0,4,0,0
+FILEVERSION     1,0,0,0
+PRODUCTVERSION  1,0,0,0
 FILEFLAGSMASK   0x3fL
 FILEFLAGS       0x0L
 FILEOS          VOS_NT_WINDOWS32
@@ -18,13 +18,12 @@ BEGIN
         BLOCK "040904B0"
         BEGIN
             VALUE "CompanyName", "Gary0"
-            VALUE "FileDescription", "Show luogu chat new messages in Windows."
-            VALUE "FileVersion", "v.0.4"
+            VALUE "FileVersion", "v.1.0"
             VALUE "InternalName", "lg-reminder"
             VALUE "LegalCopyright", "Copyright (c) 2026 Gary0"
             VALUE "OriginalFilename", "lg-reminder.exe"
             VALUE "ProductName", "lg-reminder"
-            VALUE "ProductVersion", "v.0.4"
+            VALUE "ProductVersion", "v.1.0"
         END
     END
     BLOCK "VarFileInfo"
