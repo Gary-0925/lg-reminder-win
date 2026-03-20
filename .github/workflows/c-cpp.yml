@@ -32,11 +32,39 @@ jobs:
         path: build/Release/lg-reminder.exe
         if-no-files-found: error
 
-    - name: Upload to Release
-      uses: softprops/action-gh-release@v1
+    # 创建 zip 包
+    - name: Create ZIP package
       if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        # 创建临时目录
+        mkdir temp_package
+        # 复制 exe 文件
+        copy build\Release\lg-reminder.exe temp_package\
+        # 复制其他必要文件
+        copy config.txt temp_package\ 2>nul || echo "config.txt not found"
+        copy README.md temp_package\ 2>nul || echo "README.md not found"
+        copy LICENSE temp_package\ 2>nul || echo "LICENSE not found"
+        
+        # 创建版本信息文件
+        echo "lg-reminder ${{ github.ref_name }}" > temp_package\version.txt
+        echo "Build date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" >> temp_package\version.txt
+        echo "Commit: ${{ github.sha }}" >> temp_package\version.txt
+        
+        # 压缩成 zip
+        Compress-Archive -Path temp_package\* -DestinationPath "lg-reminder-${{ github.ref_name }}.zip" -Force
+        
+        # 清理
+        Remove-Item -Recurse -Force temp_package
+      shell: pwsh
+
+    # 上传到 Release（同时上传 exe 和 zip）
+    - name: Upload to Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
       with:
         files: |
           build/Release/lg-reminder.exe
+          lg-reminder-${{ github.ref_name }}.zip
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
