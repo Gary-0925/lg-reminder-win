@@ -407,7 +407,7 @@ vector<int> LoadHistory() {
 }
 
 vector<Msg> findnew(vector<Msg> cur, vector<int> lst) {
-    if (lst.empty()) return cur;
+    if (lst.empty()) return {};
     vector<Msg> n;
     for (auto &m : cur) {
         bool ok = false;
@@ -423,6 +423,7 @@ vector<Msg> findnew(vector<Msg> cur, vector<int> lst) {
 }
 
 void CheckMessages() {
+    WriteLog("监听消息...");
     if (g_checking) return;
     g_checking = true;
     
@@ -561,20 +562,13 @@ void ShowAboutDialog(HWND hwnd) {
 
 void ShowSettingsDialog(HWND hwnd) {
     string current_interval = to_string(g_check_interval);
-    string question = "当前轮询间隔: " + current_interval + " 秒\n\n是否修改？";
-    string title = "设置";
     string hint = "请手动编辑 config.txt 文件修改间隔";
     string hint_title = "提示";
     
-    string question_sys = utf8_to_system(question);
-    string title_sys = utf8_to_system(title);
     string hint_sys = utf8_to_system(hint);
     string hint_title_sys = utf8_to_system(hint_title);
     
-    if (MessageBoxA(hwnd, question_sys.c_str(), title_sys.c_str(), 
-                    MB_YESNO | MB_ICONQUESTION) == IDYES) {
-        MessageBoxA(hwnd, hint_sys.c_str(), hint_title_sys.c_str(), MB_OK);
-    }
+    MessageBoxA(hwnd, hint_sys.c_str(), hint_title_sys.c_str(), MB_OK);
 }
 
 void ShowLogDialog(HWND hwnd) {
