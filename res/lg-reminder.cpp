@@ -2,13 +2,13 @@
 lg-reminder
 在 Windows 通知弹窗提醒洛谷私信
 ==================================================
-@version v.1.0.1
+@version v.1.0.2
 @author Gary0
 @license MIT
 ==================================================
 */
 
-#define lg_reminder_version "v.1.0.1"
+#define lg_reminder_version "v.1.0.2"
 #define lg_reminder_author "Gary0"
 
 #include <iostream>
@@ -49,6 +49,7 @@ NOTIFYICONDATAA g_nid = {};
 string g_cookie, g_username;
 vector<int> g_history_ids;
 mutex g_history_mutex;
+HICON g_app_icon = NULL;  // 应用图标句柄
 
 // 菜单项ID
 #define ID_TRAY_EXIT 1001
@@ -61,6 +62,27 @@ struct Msg {
     string name, time, con; 
     bool is_new; 
 };
+
+// 获取应用程序图标
+HICON GetAppIcon() {
+    HICON hIcon = NULL;
+    
+    // 方法2: 获取第一个图标资源
+    hIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(1), 
+                              IMAGE_ICON, 16, 16, 0);
+    if (hIcon) return hIcon;
+    
+    // 方法3: 从 exe 文件加载
+    char exePath[MAX_PATH];
+    GetModuleFileNameA(NULL, exePath, MAX_PATH);
+    hIcon = (HICON)LoadImageA(NULL, exePath, IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
+    if (hIcon) return hIcon;
+    
+    // 方法4: 使用系统信息图标作为后备
+    hIcon = LoadIcon(NULL, IDI_INFORMATION);
+    
+    return hIcon;
+}
 
 // 日志输出（写入文件）
 void WriteLog(const string& msg) {
@@ -278,8 +300,11 @@ void noti(vector<Msg> v, string us) {
             strncpy_s(n.szInfoTitle, t.c_str(), sizeof(n.szInfoTitle) - 1);
             strncpy_s(n.szInfo, c.c_str(), sizeof(n.szInfo) - 1);
             strncpy_s(n.szTip, "lg-reminder", sizeof(n.szTip) - 1);
-            HICON h = LoadIcon(NULL, IDI_INFORMATION);
-            if (h) n.hIcon = h, n.uFlags |= NIF_ICON;
+            
+            // 使用应用图标
+            n.hIcon = g_app_icon;
+            if (n.hIcon) n.uFlags |= NIF_ICON;
+            
             Shell_NotifyIconA(NIM_ADD, &n);
             Sleep(2000);
             Shell_NotifyIconA(NIM_DELETE, &n);
@@ -508,13 +533,20 @@ void CreateTrayIcon(HWND hwnd) {
     g_nid.uID = 1;
     g_nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     g_nid.uCallbackMessage = WM_TRAYICON;
-    g_nid.hIcon = LoadIcon(NULL, IDI_INFORMATION);
-    strncpy_s(g_nid.szTip, utf8_to_system(string("lg-reminder - 洛谷私信提醒")).c_str(), sizeof(g_nid.szTip) - 1);
+    
+    // 使用应用图标
+    g_app_icon = GetAppIcon();
+    g_nid.hIcon = g_app_icon;
+    
+    strncpy_s(g_nid.szTip, "lg-reminder - 洛谷私信提醒", sizeof(g_nid.szTip) - 1);
     Shell_NotifyIconA(NIM_ADD, &g_nid);
 }
 
 void RemoveTrayIcon() {
     Shell_NotifyIconA(NIM_DELETE, &g_nid);
+    if (g_app_icon) {
+        DestroyIcon(g_app_icon);
+    }
 }
 
 void ShowContextMenu(HWND hwnd) {
