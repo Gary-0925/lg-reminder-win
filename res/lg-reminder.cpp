@@ -2,13 +2,19 @@
 lg-reminder
 在 Windows 通知弹窗提醒洛谷私信
 ==================================================
-@version v.1.0.3
+@version v.1.1
 @author Gary0
 @license MIT
+本脚本由洛谷 @Gary0 开发
+感谢洛谷 @PenaltyKing 提供的思路及建议
+==================================================
+正式版发布，完全后台运行
+本脚本不会盗取您的 cookie
+使用了 AI 辅助开发，计划增加犇犇提醒和通知提醒等功能
 ==================================================
 */
 
-#define lg_reminder_version "v.1.0.3"
+#define lg_reminder_version "v.1.1"
 #define lg_reminder_author "Gary0"
 
 #include <iostream>
@@ -465,7 +471,7 @@ void CheckMessages() {
                 vector<Msg> nw = findnew(v, g_history_ids);
                 if (!nw.empty()) {
                     // 记录到日志
-                    string logmsg = "发现新消息: ";
+                    string logmsg = "新消息: ";
                     for (auto &m : nw) {
                         logmsg += m.name + " ";
                     }
@@ -477,17 +483,24 @@ void CheckMessages() {
                 }
             }
         }
+        else
+        {
+            string error_msg = "错误：无消息数据，请检查配置或网络";
+            string error_sys = utf8_to_system(error_msg);
+            string title_sys = utf8_to_system("错误");    
+            MessageBoxA(NULL, error_sys.c_str(), title_sys.c_str(), MB_OK | MB_ICONERROR);
+        }
     }
     g_checking = false;
 }
 
 void CheckMessagesLoop() {
-    WriteLog("程序启动，开始监听消息");
+    WriteLog("启动");
     while (g_running) {
         CheckMessages();
         this_thread::sleep_for(chrono::seconds(g_check_interval));
     }
-    WriteLog("程序退出");
+    WriteLog("退出");
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -553,7 +566,7 @@ void RemoveTrayIcon() {
 void ShowContextMenu(HWND hwnd) {
     HMENU hMenu = CreatePopupMenu();
     
-    string str_show_log = utf8_to_system("查看日志");
+    string str_show_log = utf8_to_system("日志");
     string str_settings = utf8_to_system("设置");
     string str_about = utf8_to_system("关于");
     string str_exit = utf8_to_system("退出");
@@ -576,7 +589,7 @@ void ShowAboutDialog(HWND hwnd) {
     string msg = "lg-reminder " + string(lg_reminder_version) + 
                  "\nBy " + string(lg_reminder_author) +
                  "\nLicense: MIT" +
-                 "\n\n洛谷私信提醒工具\n后台运行，无窗口\n\n感谢使用！";
+                 "\n\n在 Windows 通知弹窗提醒洛谷私信\n后台运行，无窗口\n\n感谢使用！";
     string title = "关于 lg-reminder";
     
     string msg_sys = utf8_to_system(msg);
@@ -630,7 +643,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                           "5. 复制完整 cookie 内容到 config.txt";
         
         string error_sys = utf8_to_system(error_msg);
-        string title_sys = utf8_to_system("配置错误");
+        string title_sys = utf8_to_system("错误");
         
         MessageBoxA(NULL, error_sys.c_str(), title_sys.c_str(), MB_OK | MB_ICONERROR);
         return 1;
@@ -659,13 +672,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     check_thread.detach();
     
     // 显示启动提示
-    string start_msg = "lg-reminder " + string(lg_reminder_version) + " 已启动\n\n"
+    string start_msg = "lg-reminder " + string(lg_reminder_version) + " 开始监听...\n\n"
                        "轮询间隔: " + to_string(g_check_interval) + " 秒\n"
                        "历史消息: " + to_string(g_history_ids.size()) + " 条\n\n"
                        "程序已在后台运行，可在系统托盘找到图标";
     
     string start_sys = utf8_to_system(start_msg);
-    string title_sys = utf8_to_system("启动成功");
+    string title_sys = utf8_to_system("lg-reminder");
     
     MessageBoxA(NULL, start_sys.c_str(), title_sys.c_str(), MB_OK | MB_ICONINFORMATION);
     
