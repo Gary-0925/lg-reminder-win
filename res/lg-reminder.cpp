@@ -2,13 +2,13 @@
 lg-reminder
 在 Windows 通知弹窗提醒洛谷私信
 ==================================================
-@version win.0.6
+@version v.0.6
 @author Gary0
 @license MIT
 ==================================================
 */
 
-#define lg_reminder_version "win.0.6"
+#define lg_reminder_version "v.0.6"
 #define lg_reminder_author "Gary0"
 
 #include <iostream>
@@ -42,8 +42,9 @@ using namespace std;
 // 全局变量
 atomic<bool> g_running(true);
 atomic<bool> g_checking(false);
-int g_check_interval = 30;  // 改为普通int
+int g_check_interval = 30;
 HWND g_hwnd = NULL;
+HWND g_console_hwnd = NULL;  // 保存控制台窗口句柄
 NOTIFYICONDATAA g_nid = {};
 string g_cookie, g_username;
 vector<int> g_history_ids;
@@ -521,13 +522,13 @@ void RemoveTrayIcon() {
 void ShowContextMenu(HWND hwnd) {
     HMENU hMenu = CreatePopupMenu();
     
-    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_SHOW, "显示控制台");
-    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_HIDE, "隐藏控制台");
+    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_SHOW, utf8_to_system("显示控制台"));
+    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_HIDE, utf8_to_system("隐藏控制台"));
     InsertMenuA(hMenu, -1, MF_SEPARATOR, 0, NULL);
-    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_SETTINGS, "设置");
-    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_ABOUT, "关于");
+    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_SETTINGS, utf8_to_system("设置"));
+    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_ABOUT, utf8_to_system("关于"));
     InsertMenuA(hMenu, -1, MF_SEPARATOR, 0, NULL);
-    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_EXIT, "退出");
+    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_EXIT, utf8_to_system("退出"));
     
     POINT pt;
     GetCursorPos(&pt);
@@ -538,25 +539,25 @@ void ShowContextMenu(HWND hwnd) {
 }
 
 void ShowAboutDialog(HWND hwnd) {
-    string msg = "lg-reminder " + string(lg_reminder_version) + 
+    string msg = utf8_to_system("lg-reminder " + string(lg_reminder_version) + 
                  "\n作者: " + string(lg_reminder_author) +
-                 "\n\n洛谷私信提醒工具\n运行于系统托盘\n\n感谢使用！";
-    MessageBoxA(hwnd, msg.c_str(), "关于 lg-reminder", MB_OK | MB_ICONINFORMATION);
+                 "\n\n洛谷私信提醒工具\n运行于系统托盘\n\n感谢使用！");
+    MessageBoxA(hwnd, msg.c_str(), utf8_to_system("关于 lg-reminder"), MB_OK | MB_ICONINFORMATION);
 }
 
 void ShowSettingsDialog(HWND hwnd) {
     string current_interval = to_string(g_check_interval);
     
-    if (MessageBoxA(hwnd, ("当前轮询间隔: " + current_interval + " 秒\n\n是否修改？").c_str(), 
-                    "设置", MB_YESNO | MB_ICONQUESTION) == IDYES) {
-        // 这里可以添加更复杂的输入对话框
-        MessageBoxA(hwnd, "请手动编辑 config.txt 文件修改间隔", "提示", MB_OK);
+    if (MessageBoxA(hwnd, utf8_to_system("当前轮询间隔: " + current_interval + " 秒\n\n是否修改？").c_str(), 
+                    utf8_to_system("设置"), MB_YESNO | MB_ICONQUESTION) == IDYES) {
+        MessageBoxA(hwnd, utf8_to_system("请手动编辑 config.txt 文件修改间隔"), utf8_to_system("提示"), MB_OK);
     }
 }
 
 void HideConsole() {
-    if (g_console_visible) {
-        ShowWindow(GetConsoleWindow(), SW_HIDE);
+    if (g_console_visible && g_console_hwnd) {
+        // 完全隐藏控制台窗口
+        ShowWindow(g_console_hwnd, SW_HIDE);
         g_console_visible = false;
         
         if (g_nid.hWnd) {
@@ -567,8 +568,11 @@ void HideConsole() {
 }
 
 void ShowConsole() {
-    if (!g_console_visible) {
-        ShowWindow(GetConsoleWindow(), SW_SHOW);
+    if (!g_console_visible && g_console_hwnd) {
+        // 显示控制台窗口
+        ShowWindow(g_console_hwnd, SW_SHOW);
+        // 确保窗口在前台
+        SetForegroundWindow(g_console_hwnd);
         g_console_visible = true;
         
         if (g_nid.hWnd) {
@@ -590,6 +594,9 @@ void ShowConsole() {
 int main() {
     SetConsoleUTF8();
     SetConsoleTitleA("lg-reminder");
+    
+    // 获取控制台窗口句柄
+    g_console_hwnd = GetConsoleWindow();
     
     // 读取配置
     if (!cfg(g_cookie, g_username, g_check_interval)) {
