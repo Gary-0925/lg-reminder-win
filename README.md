@@ -12,11 +12,13 @@
 
 在 @[PenaltyKing](https://www.luogu.com.cn/user/976095) 的建议下，我写了一个在 Windows 通知中弹窗显示洛谷私信的工具。
 
+该程序会在后台无窗口运行，并在系统托盘中显示，监听到新的洛谷私信时在通知中提示。
+
 可以前往这里下载： https://github.com/Gary-0925/lg-reminder/tags 。  
 项目地址： https://github.com/Gary-0925/lg-reminder 。  
 洛谷地址： https://www.luogu.com.cn/article/ftltn0ld 。  
 
-如果你只想使用脚本，请点击上面的链接，进入最新版本，并点击 `lg-reminder.windows.zip`，**下载后一定要先解压再运行**。
+如果你只想使用程序，请点击上面的链接，进入最新版本，并点击 `lg-reminder.windows.zip`，**下载后一定要先解压再运行**。
 
 ## 使用方法
 
