@@ -34,11 +34,16 @@ interval=15
 > 在 `cookie=` 后面填写洛谷 cookie。
 > 
 > > ### cookie 获取方法
-> > 1. 在浏览器中登录 luogu.com.cn
+> > 1. 在浏览器中登录洛谷并进入私信页面
 > > 2. 按 F12 打开开发者工具
 > > 3. 切换到“网络”标签，刷新页面
-> > 4. 点击任意请求，在 Request Headers 中找到“Cookie”
+> > 4. 点进第一个请求（名称是“chat”），往下翻，在 Request Headers 中找到“Cookie”
 > > 5. 复制 cookie 内容到 config.txt
+> > 注意是完整 cookie，格式大概形如：
+> > ```
+> > code=1; uid=1202669; notice=14695742; version=1.14.1; engine=bing; __client_id=x223134234353654644sgdfgs161; _uid=1202669;
+> > ```
+> > :::
 > > 
 > > 本人（开发者）郑重承诺，不会利用您输入的 cookie 信息对您的账号进行除读取私信消息以外的任何操作，也不会查取您的私信信息或将其发送给第三方。
 > > 
