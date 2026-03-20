@@ -2,13 +2,13 @@
 lg-reminder
 在 Windows 通知弹窗提醒洛谷私信
 ==================================================
-@version v.1.0
+@version v.1.0.1
 @author Gary0
 @license MIT
 ==================================================
 */
 
-#define lg_reminder_version "v.1.0"
+#define lg_reminder_version "v.1.0.1"
 #define lg_reminder_author "Gary0"
 
 #include <iostream>
@@ -509,7 +509,7 @@ void CreateTrayIcon(HWND hwnd) {
     g_nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     g_nid.uCallbackMessage = WM_TRAYICON;
     g_nid.hIcon = LoadIcon(NULL, IDI_INFORMATION);
-    strncpy_s(g_nid.szTip, "lg-reminder - 洛谷私信提醒", sizeof(g_nid.szTip) - 1);
+    strncpy_s(g_nid.szTip, utf8_to_system("lg-reminder - 洛谷私信提醒"), sizeof(g_nid.szTip) - 1);
     Shell_NotifyIconA(NIM_ADD, &g_nid);
 }
 
