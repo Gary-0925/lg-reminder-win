@@ -5,12 +5,6 @@ lg-reminder
 @version win.0.6
 @author Gary0
 @license MIT
-本脚本由洛谷 @Gary0 开发
-感谢洛谷 @PenaltyKing 提供的思路及建议
-==================================================
-新增功能：
-- 系统托盘图标和菜单
-- 后台运行（可隐藏控制台）
 ==================================================
 */
 
@@ -42,10 +36,13 @@ lg-reminder
 
 using namespace std;
 
+// 自定义消息常量
+#define WM_TRAYICON (WM_USER + 1)
+
 // 全局变量
 atomic<bool> g_running(true);
 atomic<bool> g_checking(false);
-atomic<int> g_check_interval(30);
+int g_check_interval = 30;  // 改为普通int
 HWND g_hwnd = NULL;
 NOTIFYICONDATAA g_nid = {};
 string g_cookie, g_username;
@@ -76,7 +73,6 @@ void ShowSettingsDialog(HWND hwnd);
 void CheckMessages();
 void SaveHistory(const vector<int>& ids);
 vector<int> LoadHistory();
-void ToggleConsole();
 void HideConsole();
 void ShowConsole();
 
@@ -306,7 +302,7 @@ bool http(string ck, string &r) {
         wstring h = L"Cookie: "; h += w; 
         h += L"\r\nUser-Agent: Mozilla/5.0\r\nAccept: text/html\r\nAccept-Language: zh-CN\r\n";
         delete[] w;
-        WinHttpAddRequestHeaders(q, h.c_str(), h.length(), WINHTTP_ADDREQ_FLAG_ADD);
+        WinHttpAddRequestHeaders(q, h.c_str(), (DWORD)h.length(), WINHTTP_ADDREQ_FLAG_ADD);
         if (!WinHttpSendRequest(q, WINHTTP_NO_ADDITIONAL_HEADERS, 0, 
                                  WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) goto end;
         if (!WinHttpReceiveResponse(q, NULL)) goto end;
@@ -442,7 +438,6 @@ void CheckMessages() {
                 lock_guard<mutex> lock(g_history_mutex);
                 vector<Msg> nw = findnew(v, g_history_ids);
                 if (!nw.empty()) {
-                    // 输出到控制台（如果可见）
                     if (g_console_visible) {
                         HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
                         SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
@@ -467,7 +462,6 @@ void CheckMessagesLoop() {
     }
 }
 
-// 窗口过程
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
         case WM_CREATE:
@@ -551,15 +545,12 @@ void ShowAboutDialog(HWND hwnd) {
 }
 
 void ShowSettingsDialog(HWND hwnd) {
-    // 简单的设置对话框
     string current_interval = to_string(g_check_interval);
-    char buffer[10];
-    strcpy_s(buffer, current_interval.c_str());
     
-    string prompt = "轮询间隔（秒）:\n当前: " + current_interval;
-    if (MessageBoxA(hwnd, "是否修改轮询间隔？", "设置", MB_YESNO | MB_ICONQUESTION) == IDYES) {
-        // 这里可以实现更复杂的输入对话框，简化处理
-        // 实际使用中可以读取配置文件重新加载
+    if (MessageBoxA(hwnd, ("当前轮询间隔: " + current_interval + " 秒\n\n是否修改？").c_str(), 
+                    "设置", MB_YESNO | MB_ICONQUESTION) == IDYES) {
+        // 这里可以添加更复杂的输入对话框
+        MessageBoxA(hwnd, "请手动编辑 config.txt 文件修改间隔", "提示", MB_OK);
     }
 }
 
@@ -568,7 +559,6 @@ void HideConsole() {
         ShowWindow(GetConsoleWindow(), SW_HIDE);
         g_console_visible = false;
         
-        // 更新托盘图标提示
         if (g_nid.hWnd) {
             strncpy_s(g_nid.szTip, "lg-reminder - 后台运行中", sizeof(g_nid.szTip) - 1);
             Shell_NotifyIconA(NIM_MODIFY, &g_nid);
@@ -581,13 +571,11 @@ void ShowConsole() {
         ShowWindow(GetConsoleWindow(), SW_SHOW);
         g_console_visible = true;
         
-        // 更新托盘图标提示
         if (g_nid.hWnd) {
             strncpy_s(g_nid.szTip, "lg-reminder - 洛谷私信提醒", sizeof(g_nid.szTip) - 1);
             Shell_NotifyIconA(NIM_MODIFY, &g_nid);
         }
         
-        // 输出当前状态
         HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
         SetConsoleTextAttribute(h, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
         cout << "\n==================================================\n";
@@ -602,9 +590,6 @@ void ShowConsole() {
 int main() {
     SetConsoleUTF8();
     SetConsoleTitleA("lg-reminder");
-    
-    // 获取控制台句柄
-    g_console_handle = GetConsoleWindow();
     
     // 读取配置
     if (!cfg(g_cookie, g_username, g_check_interval)) {
