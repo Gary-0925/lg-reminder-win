@@ -1,14 +1,14 @@
 /*
-lg-reminder
-在 Windows 通知弹窗提醒洛谷私信（无窗口版本）
+lg-reminder 应用版
+在 Windows 通知弹窗提醒洛谷私信
 ==================================================
-@version win.0.7
+@version win.0.1
 @author Gary0
 @license MIT
 ==================================================
 */
 
-#define lg_reminder_version "win.0.7"
+#define lg_reminder_version "win.0.1"
 #define lg_reminder_author "Gary0"
 
 #include <iostream>
@@ -52,7 +52,6 @@ mutex g_history_mutex;
 
 // 菜单项ID
 #define ID_TRAY_EXIT 1001
-#define ID_TRAY_CHECK 1002
 #define ID_TRAY_ABOUT 1003
 #define ID_TRAY_SETTINGS 1004
 #define ID_TRAY_SHOW_LOG 1005
@@ -485,10 +484,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             
         case WM_COMMAND:
             switch (LOWORD(wParam)) {
-                case ID_TRAY_CHECK:
-                    // 手动检查
-                    thread(CheckMessages).detach();
-                    break;
                 case ID_TRAY_ABOUT:
                     ShowAboutDialog(hwnd);
                     break;
@@ -526,13 +521,11 @@ void RemoveTrayIcon() {
 void ShowContextMenu(HWND hwnd) {
     HMENU hMenu = CreatePopupMenu();
     
-    string str_check = utf8_to_system("手动检查");
     string str_show_log = utf8_to_system("查看日志");
     string str_settings = utf8_to_system("设置");
     string str_about = utf8_to_system("关于");
     string str_exit = utf8_to_system("退出");
     
-    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_CHECK, str_check.c_str());
     InsertMenuA(hMenu, -1, MF_SEPARATOR, 0, NULL);
     InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_SHOW_LOG, str_show_log.c_str());
     InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_SETTINGS, str_settings.c_str());
@@ -549,7 +542,7 @@ void ShowContextMenu(HWND hwnd) {
 }
 
 void ShowAboutDialog(HWND hwnd) {
-    string msg = "lg-reminder " + string(lg_reminder_version) + 
+    string msg = "lg-reminder 应用版 " + string(lg_reminder_version) + 
                  "\n作者: " + string(lg_reminder_author) +
                  "\n\n洛谷私信提醒工具\n后台运行，无窗口\n\n感谢使用！";
     string title = "关于 lg-reminder";
