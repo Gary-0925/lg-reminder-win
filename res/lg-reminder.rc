@@ -1,1 +1,34 @@
-IDI_ICON_MAIN    ICON    "icon.ico"
+#include <windows.h>
+
+// 图标资源
+1 ICON "icon.ico"
+
+// 版本信息
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     0,4,0,0
+PRODUCTVERSION  0,4,0,0
+FILEFLAGSMASK   0x3fL
+FILEFLAGS       0x0L
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "Gary0"
+            VALUE "FileDescription", "Windows 通知中弹窗显示洛谷私信"
+            VALUE "FileVersion", "v.0.4"
+            VALUE "InternalName", "lg-reminder"
+            VALUE "LegalCopyright", "Copyright (c) 2026 Gary0"
+            VALUE "OriginalFilename", "lg-reminder.exe"
+            VALUE "ProductName", "lg-reminder"
+            VALUE "ProductVersion", "v.0.4"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

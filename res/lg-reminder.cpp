@@ -2,7 +2,7 @@
 lg-reminder
 在 Windows 通知弹窗提醒洛谷私信
 ==================================================
-@version 0.4
+@version v.0.4
 @author Gary0
 @license MIT
 本脚本由洛谷 @Gary0 开发
@@ -12,8 +12,7 @@ lg-reminder
 使用了 AI 辅助开发，计划增加犇犇提醒和通知提醒等功能
 ==================================================
 */
-
-#define lg_reminder_version "0.4"
+#define lg_reminder_version "v.0.4"
 #define lg_reminder_author "Gary0"
 
 #include <iostream>
@@ -298,14 +297,14 @@ vector<Msg> findnew(vector<Msg> cur, vector<int> lst)
 }
 
 int main()
-{
+{	
 	SetConsoleOutputCP(CP_ACP), SetConsoleCP(CP_ACP), SetConsoleTitleA("lg-reminder");
 	HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_CURSOR_INFO ci;
 	GetConsoleCursorInfo(h, &ci); ci.bVisible = 0; SetConsoleCursorInfo(h, &ci);
 	
 	SetConsoleTextAttribute(h, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
-	cout << "lg-reminder (v." << lg_reminder_version << " by " << lg_reminder_author << ")\n";
+	cout << "lg-reminder (" << lg_reminder_version << " by " << lg_reminder_author << ")\n";
 	cout << "==================================================\n\n";
 	SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 	
