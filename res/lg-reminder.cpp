@@ -2,13 +2,13 @@
 lg-reminder
 在 Windows 通知弹窗提醒洛谷私信
 ==================================================
-@version v.0.6
+@version win.0.6
 @author Gary0
 @license MIT
 ==================================================
 */
 
-#define lg_reminder_version "v.0.6"
+#define lg_reminder_version "win.0.6"
 #define lg_reminder_author "Gary0"
 
 #include <iostream>
@@ -522,13 +522,14 @@ void RemoveTrayIcon() {
 void ShowContextMenu(HWND hwnd) {
     HMENU hMenu = CreatePopupMenu();
     
-    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_SHOW, utf8_to_system("显示控制台"));
-    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_HIDE, utf8_to_system("隐藏控制台"));
+    // 修复：使用 .c_str() 转换为 const char*
+    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_SHOW, utf8_to_system("显示控制台").c_str());
+    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_HIDE, utf8_to_system("隐藏控制台").c_str());
     InsertMenuA(hMenu, -1, MF_SEPARATOR, 0, NULL);
-    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_SETTINGS, utf8_to_system("设置"));
-    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_ABOUT, utf8_to_system("关于"));
+    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_SETTINGS, utf8_to_system("设置").c_str());
+    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_ABOUT, utf8_to_system("关于").c_str());
     InsertMenuA(hMenu, -1, MF_SEPARATOR, 0, NULL);
-    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_EXIT, utf8_to_system("退出"));
+    InsertMenuA(hMenu, -1, MF_BYPOSITION, ID_TRAY_EXIT, utf8_to_system("退出").c_str());
     
     POINT pt;
     GetCursorPos(&pt);
@@ -539,18 +540,27 @@ void ShowContextMenu(HWND hwnd) {
 }
 
 void ShowAboutDialog(HWND hwnd) {
-    string msg = utf8_to_system("lg-reminder " + string(lg_reminder_version) + 
+    string msg = "lg-reminder " + string(lg_reminder_version) + 
                  "\n作者: " + string(lg_reminder_author) +
-                 "\n\n洛谷私信提醒工具\n运行于系统托盘\n\n感谢使用！");
-    MessageBoxA(hwnd, msg.c_str(), utf8_to_system("关于 lg-reminder"), MB_OK | MB_ICONINFORMATION);
+                 "\n\n洛谷私信提醒工具\n运行于系统托盘\n\n感谢使用！";
+    string title = "关于 lg-reminder";
+    
+    // 修复：转换为系统编码并获取 C 字符串
+    MessageBoxA(hwnd, utf8_to_system(msg).c_str(), 
+                utf8_to_system(title).c_str(), MB_OK | MB_ICONINFORMATION);
 }
 
 void ShowSettingsDialog(HWND hwnd) {
     string current_interval = to_string(g_check_interval);
+    string question = "当前轮询间隔: " + current_interval + " 秒\n\n是否修改？";
+    string title = "设置";
+    string hint = "请手动编辑 config.txt 文件修改间隔";
+    string hint_title = "提示";
     
-    if (MessageBoxA(hwnd, utf8_to_system("当前轮询间隔: " + current_interval + " 秒\n\n是否修改？").c_str(), 
-                    utf8_to_system("设置"), MB_YESNO | MB_ICONQUESTION) == IDYES) {
-        MessageBoxA(hwnd, utf8_to_system("请手动编辑 config.txt 文件修改间隔"), utf8_to_system("提示"), MB_OK);
+    if (MessageBoxA(hwnd, utf8_to_system(question).c_str(), 
+                    utf8_to_system(title).c_str(), MB_YESNO | MB_ICONQUESTION) == IDYES) {
+        MessageBoxA(hwnd, utf8_to_system(hint).c_str(), 
+                    utf8_to_system(hint_title).c_str(), MB_OK);
     }
 }
 
