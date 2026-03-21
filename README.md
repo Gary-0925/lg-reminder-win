@@ -29,13 +29,14 @@
 ```txt
 # lg-reminder 配置
 
+# 你的洛谷cookie
 cookie=你的完整cookie
 
-# 用户名
-username=你的洛谷用户名
+# 你的洛谷用户id
+uid=你的uid
 
-# 轮询间隔
-interval=15
+# 轮询间隔（秒）
+interval=10
 ```
 
 - 在 `cookie=` 后面填写洛谷 cookie。
@@ -60,7 +61,7 @@ interval=15
 >
 > **不要把你的 cookie 分享给别人，否则账号被盗概不负责。**
 
-- 在 `username=` 后面填写洛谷用户名。
+- 在 `uid=` 后面填写洛谷 uid（个人主页 URL 中的数字）。
 
 - 在 `interval=` 后面填写你希望设定的轮询间隔（秒），建议不要短于 15，否则可能导致 IP 被封禁。
 
@@ -69,12 +70,13 @@ interval=15
 ```txt
 # lg-reminder 配置
 
+# 你的洛谷cookie
 cookie=code=1; uid=1202669; notice=14695742; version=1.14.1; engine=bing; __client_id=*********************; _uid=1202669;
 
-# 用户名
-username=Gary0
+# 你的洛谷用户id
+uid=1202669
 
-# 轮询间隔
+# 轮询间隔（秒）
 interval=10
 ```
 
