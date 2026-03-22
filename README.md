@@ -27,30 +27,14 @@
 
 ## 使用方法
 
-运行一次 `lg-reminder.exe`，之后关掉程序，现在你放程序的目录下应该自动生成了一个 `config.txt`，内容应该是：
+运行一次 `lg-reminder.exe`，在系统托盘中找到程序，右键托盘程序图标，点击“设置 cookie”，此时会弹出一个记事本窗口，请按照如下方法操作：
 
-```txt
-# lg-reminder 配置
-
-# 你的洛谷cookie
-cookie=你的完整cookie
-
-# 你的洛谷用户id
-uid=你的uid
-
-# 轮询间隔（秒）
-interval=10
-```
-
-- 在 `cookie=` 后面填写洛谷 cookie。
-
-> ### cookie 获取方法
 >
 > 1. 在浏览器中登录洛谷并进入私信页面 
 > 2. 按 F12 打开开发者工具
 > 3. 切换到“网络”标签，刷新页面
 > 4. 点进名称是“chat”的请求，往下翻，在 Request Headers 中复制“Cookie”
-> 5. 将 cookie（注意是完整 cookie，不是只包含 __client_id）填入 config.txt
+> 5. 在弹出的记事本窗口粘贴 cookie，保存并关闭窗口。
 > 
 > ![](https://cdn.luogu.com.cn/upload/image_hosting/1m9kqkci.png)
 >
@@ -64,23 +48,38 @@ interval=10
 >
 > **不要把你的 cookie 分享给别人，否则账号被盗概不负责。**
 
+接下来程序会自动关闭，现在你放程序的目录下应该自动生成了一个 `config.txt`，内容应该是：
+
+```txt
+# lg-reminder 配置文件
+
+# 你的洛谷用户 id
+uid=你的uid
+
+# 轮询间隔（秒）
+interval=15
+
+# cookie 已使用 Windows DPAPI 加密存储
+# 如需修改 cookie，请在托盘图标右键菜单选择 "设置 cookie"
+```
+
 - 在 `uid=` 后面填写洛谷 uid（个人主页 URL 中的数字）。
 
-- 在 `interval=` 后面填写你希望设定的轮询间隔（秒），建议不要短于 15，否则可能导致 IP 被封禁。
+- 在 `interval=` 后面填写你希望设定的轮询间隔（秒），建议不要短于 10，否则可能导致 IP 被封禁。
 
 现在配置就填完了，我的配置是：
 
 ```txt
-# lg-reminder 配置
+# lg-reminder 配置文件
 
-# 你的洛谷cookie
-cookie=code=1; uid=1202669; notice=14695742; version=1.14.1; engine=bing; __client_id=*********************; _uid=1202669;
-
-# 你的洛谷用户id
+# 你的洛谷用户 id
 uid=1202669
 
 # 轮询间隔（秒）
 interval=10
+
+# cookie 已使用 Windows DPAPI 加密存储
+# 如需修改 cookie，请在托盘图标右键菜单选择 "设置 cookie"
 ```
 
 供参考。
