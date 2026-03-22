@@ -51,11 +51,11 @@ Copyright 2026 (c) Gary0
 #define ID_TRAY_LOG 1005
 #define ID_TRAY_GITHUB 1006
 #define ID_TRAY_README 1007
+#define ID_TRAY_PAUSE 1008
 #define MUTEX_NAME "Global\\lg-reminder-mutex"
 #define MAX_PATH_LEN 4096
 #define NOTIFY_TIMEOUT 3000
 
-typedef long long ll;
 using namespace std;
 
 // 消息结构体
@@ -80,6 +80,7 @@ HWND g_hwnd = NULL;
 notify_data_t g_notify = {};
 atomic<bool> g_running(true);
 atomic<bool> g_checking(false);
+atomic<bool> g_paused(false);
 string g_cookie;
 vector<int> g_history_ids;
 mutex g_history_mutex;
@@ -641,7 +642,7 @@ void check_messages_loop()
 	write_log("启动");
 	while (g_running)
 	{
-		check_messages();
+		if (!g_paused) check_messages();
 		this_thread::sleep_for(chrono::seconds(g_check_interval));
 	}
 }
@@ -668,7 +669,7 @@ void create_tray_icon(HWND hwnd)
 	g_notify.app_icon = get_app_icon();
 	g_notify.nid.hIcon = g_notify.app_icon;
 	
-	string tip = utf8_to_system("lg-reminder - 洛谷私信提醒");
+	string tip = utf8_to_system("lg-reminder - 监听中");
 	strncpy_s(g_notify.nid.szTip, tip.c_str(), sizeof(g_notify.nid.szTip) - 1);
 	Shell_NotifyIconA(NIM_ADD, &g_notify.nid);
 }
@@ -681,6 +682,17 @@ void remove_tray_icon()
 		DestroyIcon(g_notify.app_icon);
 }
 
+// 更新提示文字
+void update_tray_tip()
+{
+	string tip;
+	if (g_paused) tip = utf8_to_system("lg-reminder - 已暂停");
+	else tip = utf8_to_system("lg-reminder - 监听中");
+	
+	strncpy_s(g_notify.nid.szTip, tip.c_str(), sizeof(g_notify.nid.szTip) - 1);
+	Shell_NotifyIconA(NIM_MODIFY, &g_notify.nid);
+}
+
 // 显示右键菜单
 void show_context_menu(HWND hwnd)
 {
@@ -688,11 +700,15 @@ void show_context_menu(HWND hwnd)
 	
 	string str_readme = utf8_to_system("使用说明");
 	string str_github = utf8_to_system("手动更新");
+	string str_pause;
+	if (g_paused) str_pause = utf8_to_system("恢复监听");
+	else str_pause = utf8_to_system("暂停监听");
 	string str_log = utf8_to_system("打开日志");
 	string str_settings = utf8_to_system("打开配置");
 	string str_about = utf8_to_system("关于");
 	string str_exit = utf8_to_system("退出");
 	
+	InsertMenuA(menu, -1, MF_BYPOSITION, ID_TRAY_PAUSE, str_pause.c_str());
 	InsertMenuA(menu, -1, MF_BYPOSITION, ID_TRAY_README, str_readme.c_str());
 	InsertMenuA(menu, -1, MF_BYPOSITION, ID_TRAY_GITHUB, str_github.c_str());
 	InsertMenuA(menu, -1, MF_SEPARATOR, 0, NULL);
@@ -821,7 +837,13 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			open_url("https://github.com/Gary-0925/lg-reminder/blob/main/README.md");
 			break;
 		case ID_TRAY_GITHUB:
-			open_url("https://github.com/Gary-0925/lg-reminder/tags");
+			open_url("https://github.com/Gary-0925/lg-reminder/releases/latest");
+			break;
+		case ID_TRAY_PAUSE:
+			g_paused = !g_paused;
+			update_tray_tip();
+			if (g_paused) write_log("暂停监听");
+			else write_log("恢复监听");
 			break;
 		}
 		break;
