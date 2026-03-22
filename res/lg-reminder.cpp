@@ -3,7 +3,7 @@ lg-reminder
 在 Windows 通知弹窗提醒洛谷私信
 https://github.com/Gary-0925/lg-reminder/
 ==================================================
-@version v.1.4
+@version v.1.5
 @author Gary0
 @license MIT
 Copyright 2026 (c) Gary0
@@ -13,6 +13,7 @@ Copyright 2026 (c) Gary0
 正式版发布，完全后台运行
 本程序不会盗取您的 cookie
 使用了 AI 辅助开发，计划增加犇犇提醒和通知提醒等功能
+Cookie 已使用 Windows DPAPI 加密存储
 ==================================================
 */
 
@@ -36,13 +37,23 @@ Copyright 2026 (c) Gary0
 #include <mutex>
 #include <sstream>
 #include <shellapi.h>
+#include <dpapi.h>
 
-#pragma comment(lib, "winhttp.lib")
-#pragma comment(lib, "user32.lib")
-#pragma comment(lib, "shell32.lib")
-#pragma comment(lib, "comctl32.lib")
+// 仅在 MSVC 下使用 #pragma comment
+#ifdef _MSC_VER
+	#pragma comment(lib, "winhttp.lib")
+	#pragma comment(lib, "user32.lib")
+	#pragma comment(lib, "shell32.lib")
+	#pragma comment(lib, "comctl32.lib")
+	#pragma comment(lib, "gdi32.lib")
+	#pragma comment(lib, "crypt32.lib")
+	#pragma comment(lib, "advapi32.lib")
+#endif
 
-#define LG_REMINDER_VERSION "v.1.4"
+// MinGW64 用户请在编译命令中添加以下链接库：
+// -lwinhttp -luser32 -lshell32 -lcomctl32 -lgdi32 -lcrypt32 -ladvapi32
+
+#define LG_REMINDER_VERSION "v.1.5"
 #define LG_REMINDER_AUTHOR "Gary0"
 #define WM_TRAY_ICON (WM_USER + 1)
 #define ID_TRAY_EXIT 1001
@@ -52,6 +63,8 @@ Copyright 2026 (c) Gary0
 #define ID_TRAY_GITHUB 1006
 #define ID_TRAY_README 1007
 #define ID_TRAY_PAUSE 1008
+#define ID_TRAY_SET_COOKIE 1009
+#define ID_TRAY_CLEAR_COOKIE 1010
 #define MUTEX_NAME "Global\\lg-reminder-mutex"
 #define MAX_PATH_LEN 4096
 #define NOTIFY_TIMEOUT 3000
@@ -73,8 +86,14 @@ struct notify_data_t
 	HICON app_icon;
 };
 
+// 配置数据结构
+struct ConfigData {
+	int uid = 0;
+	int interval = 15;
+};
+
 // 全局变量
-int g_check_interval = 30;
+int g_check_interval = 15;
 int g_uid = 0;
 HWND g_hwnd = NULL;
 notify_data_t g_notify = {};
@@ -86,7 +105,7 @@ vector<int> g_history_ids;
 mutex g_history_mutex;
 map<int, int> g_id_to_uid;
 
-// 工具函数
+// 函数声明
 string get_current_time();
 string utf8_to_system(const string &s);
 string decode_unicode(string s);
@@ -99,12 +118,13 @@ void show_error_message(const string &msg);
 void show_info_message(const string &msg);
 void open_url(const string &url);
 void open_file(const string &filename);
-
-// 业务函数
 vector<msg_t> parse_messages(string json);
 void send_notification(vector<msg_t> msgs);
 bool http_request(string cookie, string &response);
-bool load_config(string &cookie, int &uid, int &interval);
+bool load_config(ConfigData &config);
+bool load_cookie(string &cookie);
+bool save_cookie(const string &cookie);
+bool delete_cookie();
 void save_history(const vector<int>& ids);
 vector<int> load_history();
 vector<msg_t> find_new_messages(vector<msg_t> current, vector<int> history);
@@ -115,12 +135,322 @@ void write_log(const string& msg);
 void init_window_class(HINSTANCE hInstance);
 void create_tray_icon(HWND hwnd);
 void remove_tray_icon();
+void update_tray_tip();
 void show_context_menu(HWND hwnd);
 void show_about_dialog(HWND hwnd);
 void show_config_dialog(HWND hwnd);
 void show_log_dialog(HWND hwnd);
+void show_set_cookie_dialog(HWND hwnd);
+void show_clear_cookie_dialog(HWND hwnd);
 void cleanup_and_exit(HANDLE mutex, int exit_code);
 LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+// ==================== Cookie 加密存储 ====================
+
+// 使用 DPAPI 加密数据
+vector<BYTE> encrypt_data(const string& data)
+{
+	DATA_BLOB input = {0};
+	DATA_BLOB output = {0};
+	vector<BYTE> result;
+	
+	input.pbData = (BYTE*)data.c_str();
+	input.cbData = (DWORD)data.size();
+	
+	if (CryptProtectData(&input, L"lg-reminder-cookie", NULL, NULL, NULL, 0, &output))
+	{
+		result.assign(output.pbData, output.pbData + output.cbData);
+		LocalFree(output.pbData);
+		write_log("cookie 加密成功");
+	}
+	else
+	{
+		write_log("cookie 加密失败，错误码: " + to_string(GetLastError()));
+	}
+	
+	return result;
+}
+
+// 使用 DPAPI 解密数据
+string decrypt_data(const vector<BYTE>& encrypted)
+{
+	DATA_BLOB input = {0};
+	DATA_BLOB output = {0};
+	string result;
+	
+	if (encrypted.empty()) return "";
+	
+	input.pbData = (BYTE*)encrypted.data();
+	input.cbData = (DWORD)encrypted.size();
+	
+	if (CryptUnprotectData(&input, NULL, NULL, NULL, NULL, 0, &output))
+	{
+		result.assign((char*)output.pbData, output.cbData);
+		LocalFree(output.pbData);
+		write_log("cookie 解密成功");
+	}
+	else
+	{
+		write_log("cookie 解密失败，错误码: " + to_string(GetLastError()));
+	}
+	
+	return result;
+}
+
+// 保存 cookie 到加密文件
+bool save_cookie(const string &cookie)
+{
+	if (cookie.empty()) return false;
+	
+	vector<BYTE> encrypted = encrypt_data(cookie);
+	if (encrypted.empty()) return false;
+	
+	ofstream file("cookie.dat", ios::binary);
+	if (!file.is_open())
+	{
+		write_log("无法创建加密文件");
+		return false;
+	}
+	
+	DWORD size = (DWORD)encrypted.size();
+	file.write((char*)&size, sizeof(size));
+	file.write((char*)encrypted.data(), size);
+	file.close();
+	
+	write_log("cookie 已加密保存");
+	return true;
+}
+
+// 从加密文件加载 cookie
+bool load_cookie(string &cookie)
+{
+	if (!file_exists("cookie.dat"))
+	{
+		return false;
+	}
+	
+	ifstream file("cookie.dat", ios::binary);
+	if (!file.is_open()) return false;
+
+	DWORD size = 0;
+	file.read((char*)&size, sizeof(size));
+	if (size == 0 || size > 1024 * 1024)
+	{
+		file.close();
+		return false;
+	}
+
+	vector<BYTE> encrypted(size);
+	file.read((char*)encrypted.data(), size);
+	file.close();
+
+	cookie = decrypt_data(encrypted);
+
+	if (cookie.empty() || cookie.find("__client_id") == string::npos || cookie.find("_uid") == string::npos)
+	{
+		write_log("cookie 无效或已损坏");
+		return false;
+	}
+	
+	return true;
+}
+
+// 删除加密的 cookie
+bool delete_cookie()
+{
+	if (file_exists("cookie.dat"))
+	{
+		if (DeleteFileA("cookie.dat"))
+		{
+			write_log("cookie 加密文件已删除");
+			return true;
+		}
+		else
+		{
+			write_log("删除 cookie 文件失败");
+			return false;
+		}
+	}
+	return true;
+}
+
+// ==================== 配置管理 ====================
+
+// 加载配置
+bool load_config(ConfigData &config)
+{
+	string content = read_file("config.txt");
+	
+	if (content.empty())
+	{
+		string default_config =
+			"# lg-reminder 配置文件\n\n"
+			"# 你的洛谷用户 id\n"
+			"uid=你的uid\n\n"
+			"# 轮询间隔（秒），最小8秒\n"
+			"interval=15\n\n"
+			"# cookie 已使用 Windows DPAPI 加密存储\n"
+			"# 如需修改 cookie，请在托盘图标右键菜单选择 \"设置 cookie\"\n";
+		
+		write_file("config.txt", utf8_to_system(default_config));
+		return false;
+	}
+	
+	stringstream ss(content);
+	string line;
+	
+	while (getline(ss, line))
+	{
+		if (!line.empty() && line.back() == '\r') line.pop_back();
+		if (line.empty() || line[0] == '#') continue;
+		
+		size_t pos = line.find('=');
+		if (pos == string::npos) continue;
+		
+		string key = line.substr(0, pos);
+		string value = line.substr(pos + 1);
+		
+		key.erase(0, key.find_first_not_of(" \t"));
+		key.erase(key.find_last_not_of(" \t") + 1);
+		value.erase(0, value.find_first_not_of(" \t"));
+		value.erase(value.find_last_not_of(" \t") + 1);
+		
+		try
+		{
+			if (key == "uid")
+			{
+				if (value != "你的uid")
+					config.uid = stoi(value);
+			}
+			else if (key == "interval")
+			{
+				config.interval = stoi(value);
+			}
+		}
+		catch (...)
+		{
+			write_log("配置解析错误: " + line);
+		}
+	}
+	
+	if (config.interval < 8) config.interval = 8;
+	
+	return config.uid > 0;
+}
+
+// ==================== Cookie 设置对话框 ====================
+
+// 显示设置 cookie 对话框
+void show_set_cookie_dialog(HWND hwnd)
+{
+	char temp_path[MAX_PATH];
+	GetTempPathA(MAX_PATH, temp_path);
+	string cookie_file = string(temp_path) + "lg_reminder_cookie.txt";
+	
+	string existing;
+	load_cookie(existing);
+	
+	ofstream f(cookie_file, ios::out | ios::binary);
+	if (f.is_open())
+	{
+		f << "# 请在下方粘贴完整的洛谷 cookie\n";
+		f << "# 格式示例：__client_id=xxx; _uid=xxx; login_referer=xxx; ...\n";
+		f << "# 注意：请复制完整的 cookie，包括所有字段\n";
+		f << "# 保存并关闭文件后，cookie 将自动加密保存\n\n";
+		
+		if (!existing.empty())
+		{
+			f << existing;
+		}
+		
+		f.close();
+	}
+	else
+	{
+		show_error_message("无法创建临时文件");
+		return;
+	}
+	
+	string cmd = "notepad.exe \"" + cookie_file + "\"";
+	STARTUPINFOA si = {sizeof(si)};
+	PROCESS_INFORMATION pi;
+	
+	if (CreateProcessA(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+	{
+		WaitForSingleObject(pi.hProcess, INFINITE);
+		CloseHandle(pi.hProcess);
+		CloseHandle(pi.hThread);
+		
+		string new_cookie = read_file(cookie_file);
+		DeleteFileA(cookie_file.c_str());
+		
+		stringstream ss(new_cookie);
+		string line;
+		string clean_cookie;
+		while (getline(ss, line))
+		{
+			if (!line.empty() && line.back() == '\r') line.pop_back();
+			if (line.empty() || line[0] == '#') continue;
+			clean_cookie += line;
+		}
+		
+		clean_cookie.erase(0, clean_cookie.find_first_not_of(" \t\n\r"));
+		clean_cookie.erase(clean_cookie.find_last_not_of(" \t\n\r") + 1);
+		
+		if (!clean_cookie.empty())
+		{
+			if (clean_cookie.find("__client_id") != string::npos && clean_cookie.find("_uid") != string::npos)
+			{
+				if (save_cookie(clean_cookie))
+				{
+					show_info_message("cookie 已成功加密保存！\n\n请重启程序以使新 cookie 生效。");
+					write_log("用户更新了 cookie");
+					
+					g_running = false;
+				}
+				else
+				{
+					show_error_message("保存 cookie 失败");
+				}
+			}
+			else
+			{
+				show_error_message("cookie 无效！\n请确保包含 __client_id 和 _uid 等完整字段");
+			}
+		}
+		else
+		{
+			show_info_message("未输入任何 cookie");
+		}
+	}
+	
+	DeleteFileA(cookie_file.c_str());
+}
+
+// 显示清除 cookie 对话框
+void show_clear_cookie_dialog(HWND hwnd)
+{
+	int result = MessageBoxA(hwnd, utf8_to_system(
+		"确定要删除已加密保存的 cookie 吗？\n\n"
+		"删除后需要重新设置才能接收提醒。").c_str(),
+		utf8_to_system("确认删除").c_str(), 
+		MB_YESNO | MB_ICONWARNING);
+	
+	if (result == IDYES)
+	{
+		if (delete_cookie())
+		{
+			show_info_message("cookie 成功删除");
+			write_log("删除 cookie");
+		}
+		else
+		{
+			show_info_message("cookie 删除失败");
+		}
+	}
+}
+
+// ==================== 原有函数 ====================
 
 // 获取当前时间字符串
 string get_current_time()
@@ -128,8 +458,7 @@ string get_current_time()
 	SYSTEMTIME st;
 	GetLocalTime(&st);
 	char buf[64];
-	sprintf_s(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
-			  st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+	sprintf_s(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
 	return buf;
 }
 
@@ -157,7 +486,6 @@ string read_file(const string &filename)
 	content.append(buffer, f.gcount());
 	f.close();
 	
-	// 去除BOM
 	if (content.size() >= 3 &&
 		(unsigned char)content[0] == 0xEF &&
 		(unsigned char)content[1] == 0xBB &&
@@ -347,7 +675,6 @@ vector<msg_t> parse_messages(string json)
 		}
 		string obj = json.substr(pos, end - pos);
 		
-		// 解析id
 		size_t id_pos = obj.find("\"id\":");
 		if (id_pos != string::npos)
 		{
@@ -357,7 +684,6 @@ vector<msg_t> parse_messages(string json)
 				m.id = atoi(obj.substr(a, b - a).c_str());
 		}
 		
-		// 解析时间
 		size_t time_pos = obj.find("\"time\":");
 		if (time_pos != string::npos)
 		{
@@ -373,7 +699,6 @@ vector<msg_t> parse_messages(string json)
 			}
 		}
 		
-		// 解析发送者
 		size_t sender_pos = obj.find("\"sender\":");
 		if (sender_pos != string::npos)
 		{
@@ -395,7 +720,6 @@ vector<msg_t> parse_messages(string json)
 			}
 		}
 		
-		// 解析内容
 		size_t content_pos = obj.find("\"content\":");
 		if (content_pos != string::npos)
 		{
@@ -470,11 +794,14 @@ bool http_request(string cookie, string &response)
 {
 	HINTERNET session = NULL, connect = NULL, request = NULL;
 	
-	session = WinHttpOpen(L"lg-reminder/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+	session = WinHttpOpen(L"lg-reminder/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, 
+						  WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (session) 
 		connect = WinHttpConnect(session, L"www.luogu.com.cn", INTERNET_DEFAULT_HTTPS_PORT, 0);
 	if (connect) 
-		request = WinHttpOpenRequest(connect, L"GET", L"/chat", NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+		request = WinHttpOpenRequest(connect, L"GET", L"/chat", NULL, 
+									  WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, 
+									  WINHTTP_FLAG_SECURE);
 	if (request)
 	{
 		int len = MultiByteToWideChar(CP_UTF8, 0, cookie.c_str(), -1, NULL, 0);
@@ -485,9 +812,11 @@ bool http_request(string cookie, string &response)
 		headers += L"\r\nUser-Agent: Mozilla/5.0\r\nAccept: text/html\r\nAccept-Language: zh-CN\r\n";
 		delete[] w_cookie;
 		
-		WinHttpAddRequestHeaders(request, headers.c_str(), (DWORD)headers.length(), WINHTTP_ADDREQ_FLAG_ADD);
+		WinHttpAddRequestHeaders(request, headers.c_str(), (DWORD)headers.length(), 
+								  WINHTTP_ADDREQ_FLAG_ADD);
 		
-		if (!WinHttpSendRequest(request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) goto cleanup;
+		if (!WinHttpSendRequest(request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, 
+								WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) goto cleanup;
 		if (!WinHttpReceiveResponse(request, NULL)) goto cleanup;
 		
 		DWORD size = 0, read = 0;
@@ -508,42 +837,6 @@ bool http_request(string cookie, string &response)
 	if (connect) WinHttpCloseHandle(connect);
 	if (session) WinHttpCloseHandle(session);
 	return true;
-}
-
-// 加载配置
-bool load_config(string &cookie, int &uid, int &interval)
-{
-	string content = read_file("config.txt");
-	if (content.empty())
-	{
-		string default_config =
-			"# lg-reminder 配置\n\n"
-			"# 你的洛谷cookie\ncookie=你的完整cookie\n\n"
-			"# 你的洛谷用户id\nuid=你的uid\n\n"
-			"# 轮询间隔（秒）\ninterval=10";
-		write_file("config.txt", utf8_to_system(default_config));
-		return false;
-	}
-	
-	stringstream ss(content);
-	string line;
-	while (getline(ss, line))
-	{
-		if (!line.empty() && line.back() == '\r') line.pop_back();
-		if (line.empty() || line[0] == '#') continue;
-		
-		size_t pos = line.find('=');
-		if (pos == string::npos) continue;
-		
-		string key = line.substr(0, pos);
-		string value = line.substr(pos + 1);
-		
-		if (key == "cookie") cookie = value;
-		else if (key == "uid") uid = stoi(value);
-		else if (key == "interval") interval = stoi(value);
-	}
-	
-	return !cookie.empty() && cookie.find(utf8_to_system("你的")) == string::npos;
 }
 
 // 保存历史记录
@@ -631,7 +924,7 @@ void check_messages()
 			}
 		}
 		else
-			show_error_message("错误：无消息数据，请检查配置或网络");
+			write_log("错误：无消息数据，请检查配置或网络");
 	}
 	g_checking = false;
 }
@@ -642,9 +935,11 @@ void check_messages_loop()
 	write_log("启动");
 	while (g_running)
 	{
-		if (!g_paused) check_messages();
+		if (!g_paused && !g_cookie.empty()) 
+			check_messages();
 		this_thread::sleep_for(chrono::seconds(g_check_interval));
 	}
+	write_log("退出");
 }
 
 // 初始化窗口类
@@ -705,6 +1000,8 @@ void show_context_menu(HWND hwnd)
 	else str_pause = utf8_to_system("暂停监听");
 	string str_log = utf8_to_system("打开日志");
 	string str_settings = utf8_to_system("打开配置");
+	string str_set_cookie = utf8_to_system("设置 cookie");
+	string str_clear_cookie = utf8_to_system("清除 cookie");
 	string str_about = utf8_to_system("关于");
 	string str_exit = utf8_to_system("退出");
 	
@@ -712,6 +1009,8 @@ void show_context_menu(HWND hwnd)
 	InsertMenuA(menu, -1, MF_BYPOSITION, ID_TRAY_README, str_readme.c_str());
 	InsertMenuA(menu, -1, MF_BYPOSITION, ID_TRAY_GITHUB, str_github.c_str());
 	InsertMenuA(menu, -1, MF_SEPARATOR, 0, NULL);
+	InsertMenuA(menu, -1, MF_BYPOSITION, ID_TRAY_SET_COOKIE, str_set_cookie.c_str());
+	InsertMenuA(menu, -1, MF_BYPOSITION, ID_TRAY_CLEAR_COOKIE, str_clear_cookie.c_str());
 	InsertMenuA(menu, -1, MF_BYPOSITION, ID_TRAY_SETTINGS, str_settings.c_str());
 	InsertMenuA(menu, -1, MF_BYPOSITION, ID_TRAY_LOG, str_log.c_str());
 	InsertMenuA(menu, -1, MF_BYPOSITION, ID_TRAY_ABOUT, str_about.c_str());
@@ -737,6 +1036,7 @@ void show_about_dialog(HWND hwnd)
 				 "本脚本由洛谷 @" + string(LG_REMINDER_AUTHOR) + " 开发\n"
 				 "感谢洛谷 @PenaltyKing 提供的思路及建议\n\n"
 				 "在 Windows 通知弹窗提醒洛谷私信\n"
+				 "cookie 已使用 Windows DPAPI 加密存储\n\n"
 				 "感谢使用！";
 	
 	string msg_sys = utf8_to_system(msg);
@@ -774,6 +1074,7 @@ void show_config_dialog(HWND hwnd)
 	}
 	
 	open_file(cfg_path);
+
 	g_running = false;
 }
 
@@ -826,6 +1127,12 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case ID_TRAY_SETTINGS:
 			show_config_dialog(hwnd);
 			break;
+		case ID_TRAY_SET_COOKIE:
+			show_set_cookie_dialog(hwnd);
+			break;
+		case ID_TRAY_CLEAR_COOKIE:
+			show_clear_cookie_dialog(hwnd);
+			break;
 		case ID_TRAY_LOG:
 			show_log_dialog(hwnd);
 			break;
@@ -854,7 +1161,6 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 // 主函数
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-	// 单实例检查
 	HANDLE mutex = CreateMutexA(NULL, TRUE, MUTEX_NAME);
 	if (GetLastError() == ERROR_ALREADY_EXISTS)
 	{
@@ -864,26 +1170,33 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	
 	try
 	{
-		// 加载配置
-		if (!load_config(g_cookie, g_uid, g_check_interval))
+		ConfigData config;
+		string start_msg = "lg-reminder " + string(LG_REMINDER_VERSION) + " 开始监听...\n\n";
+
+		if (!load_config(config))
 		{
-			string error_msg = "错误：配置加载失败\n\n"
-							   "请编辑 config.txt 文件，填入您的 cookie\n\n"
-							   "如何获取 cookie：\n"
-							   "1. 在浏览器中登录洛谷并进入私信页面\n"
-							   "2. 按 F12 打开开发者工具\n"
-							   "3. 切换到\"网络\"标签，刷新页面\n"
-							   "4. 点进名称是\"chat\"的请求，往下翻，在 Request Headers 中复制\"Cookie\"\n"
-							   "5. 将 cookie（注意是完整 cookie，不是只包含 __client_id）填入 config.txt";
-			show_error_message(error_msg);
-			write_log("配置异常退出");
-			cleanup_and_exit(mutex, 1);
+			write_log("配置加载失败，已创建默认配置");
+			start_msg += "配置加载失败，请编辑 config.txt\n\n";
+		}
+		else
+		{
+			g_uid = config.uid;
+			g_check_interval = config.interval;
+			write_log("配置加载成功: uid=" + to_string(g_uid) + ", 间隔=" + to_string(g_check_interval) + "秒");
 		}
 		
-		// 加载历史
-		g_history_ids = load_history();
+		if (!load_cookie(g_cookie))
+		{
+			write_log("未找到有效的 cookie");
+		}
+		else
+		{
+			write_log("cookie 加载成功");
+		}
 		
-		// 创建窗口
+		g_history_ids = load_history();
+		write_log("历史消息加载完成，共 " + to_string(g_history_ids.size()) + " 条");
+		
 		init_window_class(hInstance);
 		g_hwnd = CreateWindowA("LGReminderClass", "lg-reminder", WS_OVERLAPPEDWINDOW, 0, 0, 0, 0, NULL, NULL, hInstance, NULL);
 		
@@ -893,18 +1206,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			cleanup_and_exit(mutex, 1);
 		}
 		
-		// 启动检查线程
 		thread check_thread(check_messages_loop);
 		check_thread.detach();
 		
-		// 显示启动提示
-		string start_msg = "lg-reminder " + string(LG_REMINDER_VERSION) + " 开始监听...\n\n"
-						   "轮询间隔: " + to_string(g_check_interval) + " 秒\n"
-						   "历史消息: " + to_string(g_history_ids.size()) + " 条\n\n"
-						   "程序已在后台运行，可在系统托盘找到图标";
+		if (g_cookie.empty())
+		{
+			start_msg += "cookie 未设置\n"
+						 "如何设置 cookie：\n"
+						 "1. 在浏览器中登录洛谷并进入私信页面\n"
+						 "2. 按 F12 打开开发者工具\n"
+						 "3. 切换到\"网络\"标签，刷新页面\n"
+						 "4. 点进名称是\"chat\"的请求，往下翻，在 Request Headers 中复制\"Cookie\"\n"
+						 "5. 右键托盘图标，点击 \"设置 cookie\" 进行配置\n\n";
+		}
+		start_msg += "轮询间隔: " + to_string(g_check_interval) + " 秒\n";
+		start_msg += "历史消息: " + to_string(g_history_ids.size()) + " 条\n\n";
+		start_msg += "程序已在后台运行，可在系统托盘找到图标";
+		
 		show_info_message(start_msg);
 		
-		// 消息循环
 		MSG msg;
 		while (GetMessage(&msg, NULL, 0, 0) && g_running)
 		{
