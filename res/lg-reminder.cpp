@@ -34,6 +34,7 @@ Copyright 2026 (c) Gary0
 #include <mutex>
 #include <sstream>
 #include <shellapi.h>
+#include <map>
 
 #pragma comment(lib, "winhttp.lib")
 #pragma comment(lib, "user32.lib")
