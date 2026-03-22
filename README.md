@@ -1,6 +1,9 @@
-[![最新版本](https://img.shields.io/github/v/release/Gary-0925/lg-reminder.svg)](https://github.com/Gary-0925/lg-reminder/releases/latest)
-[![最新 commit](https://img.shields.io/github/last-commit/Gary-0925/lg-reminder.svg)](https://github.com/Gary-0925/lg-reminder/commit/main)
-[![license](https://img.shields.io/github/license/Gary-0925/lg-reminder.svg)](https://github.com/Gary-0925/lg-reminder/blob/main/LICENSE)
+[![最新版本](https://img.shields.io/github/v/release/Gary-0925/lg-reminder?sort=date&style=flat-square&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=%23aa99dd)](https://github.com/Gary-0925/lg-reminder/releases/latest)[![最新版本发布时间](https://img.shields.io/github/release-date/Gary-0925/lg-reminder?style=flat-square&label=%20&color=%23aa99dd)](https://github.com/Gary-0925/lg-reminder/releases/latest)
+[![最近更新](https://img.shields.io/github/last-commit/Gary-0925/lg-reminder?style=flat-square&label=%E6%9C%80%E8%BF%91%E6%9B%B4%E6%96%B0
+)](https://github.com/Gary-0925/lg-reminder/commit/main)
+[![license](https://img.shields.io/github/license/Gary-0925/lg-reminder.svg?style=flat-square)](https://github.com/Gary-0925/lg-reminder/blob/main/LICENSE)
+
+---
 
 省流：在Windows弹窗显示洛谷私信的工具可以到[这里](https://github.com/Gary-0925/lg-reminder/releases/latest)下载运行后按说明填写配置再运行就能用了。
 
