@@ -2,7 +2,7 @@
 lg-reminder
 在 Windows 通知弹窗提醒洛谷私信
 ==================================================
-@version v.1.2.1
+@version v.1.3
 @author Gary0
 @license MIT
 Copyright 2026 (c) Gary0
@@ -40,7 +40,7 @@ Copyright 2026 (c) Gary0
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "comctl32.lib")
 
-#define lg_reminder_version "v.1.2.1"
+#define lg_reminder_version "v.1.3"
 #define lg_reminder_author "Gary0"
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_TRAY_EXIT 1001
@@ -49,6 +49,10 @@ Copyright 2026 (c) Gary0
 #define ID_TRAY_LOG 1005
 #define ID_TRAY_GITHUB 1006
 #define ID_TRAY_README 1007
+#ifndef EM_SETCUEBANNER
+#define EM_SETCUEBANNER (WM_USER + 1)
+#endif
+#define MUTEX_NAME "Global\\lg-reminder-mutex"
 
 typedef long long LL;
 using namespace std;
@@ -323,6 +327,8 @@ vector<Msg> parse(string j)
 	return v;
 }
 
+map<int, int> idtoname;
+
 void noti(vector<Msg> v)
 {
 	if (v.empty()) return;
@@ -332,23 +338,26 @@ void noti(vector<Msg> v)
 		string name_sys = utf8_to_system(m.name);
 		string t = utf8_to_system("洛谷新私信 - 来自 ") + name_sys;
 		string c = m.con.empty() ? utf8_to_system("您有一条新消息") : utf8_to_system(m.con);
-		
+
+		idtoname[m.id] = m.uid;
+
 		NOTIFYICONDATAA n = {};
 		n.cbSize = sizeof(NOTIFYICONDATAA);
 		n.hWnd = g_hwnd;
 		n.uID = m.id;
-		n.uFlags = NIF_INFO | NIF_ICON | NIF_TIP;
+		n.uFlags = NIF_INFO | NIF_ICON | NIF_TIP | NIF_MESSAGE;
 		n.dwInfoFlags = NIIF_INFO | NIIF_LARGE_ICON;
 		n.uTimeout = 5000;
+		n.uCallbackMessage = WM_TRAYICON;
 		strncpy_s(n.szInfoTitle, t.c_str(), sizeof(n.szInfoTitle) - 1);
 		strncpy_s(n.szInfo, c.c_str(), sizeof(n.szInfo) - 1);
-		strncpy_s(n.szTip, "lg-reminder", sizeof(n.szTip) - 1);
-		
+
 		n.hIcon = g_ntf.app_icon;
 		if (n.hIcon) n.uFlags |= NIF_ICON;
 		
 		Shell_NotifyIconA(NIM_ADD, &n);
-		Sleep(2000);
+		Shell_NotifyIconA(NIM_SETVERSION, &n);
+		Sleep(3000);
 		Shell_NotifyIconA(NIM_DELETE, &n);
 		Sleep(500);
 	}
@@ -359,10 +368,10 @@ bool http(string ck, string &r)
 	HINTERNET s = NULL, c = NULL, q = NULL;
 	
 	s = WinHttpOpen(L"lg-reminder/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-	                WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+					WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (s) c = WinHttpConnect(s, L"www.luogu.com.cn", INTERNET_DEFAULT_HTTPS_PORT, 0);
 	if (c) q = WinHttpOpenRequest(c, L"GET", L"/chat", NULL, WINHTTP_NO_REFERER,
-	                              WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+								  WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
 	if (q)
 	{
 		int l = MultiByteToWideChar(CP_UTF8, 0, ck.c_str(), -1, NULL, 0);
@@ -375,7 +384,7 @@ bool http(string ck, string &r)
 		WinHttpAddRequestHeaders(q, h.c_str(), (DWORD)h.length(), WINHTTP_ADDREQ_FLAG_ADD);
 		
 		if (!WinHttpSendRequest(q, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
-		                        WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) goto end;
+								WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) goto end;
 		if (!WinHttpReceiveResponse(q, NULL)) goto end;
 		
 		DWORD sz = 0, d = 0;
@@ -406,10 +415,10 @@ bool cfg(string &c, int &u, int &t)
 		if (o.is_open())
 		{
 			string config =
-			    "# lg-reminder 配置\n\n"
-			    "# 你的洛谷cookie\ncookie=你的完整cookie\n\n"
-			    "# 你的洛谷用户id\nuid=你的uid\n\n"
-			    "# 轮询间隔（秒）\ninterval=10";
+				"# lg-reminder 配置\n\n"
+				"# 你的洛谷cookie\ncookie=你的完整cookie\n\n"
+				"# 你的洛谷用户id\nuid=你的uid\n\n"
+				"# 轮询间隔（秒）\ninterval=10";
 			o << utf8_to_system(config);
 			o.close();
 		}
@@ -424,9 +433,9 @@ bool cfg(string &c, int &u, int &t)
 	f.close();
 	
 	if (content.size() >= 3 &&
-	        (unsigned char)content[0] == 0xEF &&
-	        (unsigned char)content[1] == 0xBB &&
-	        (unsigned char)content[2] == 0xBF)
+			(unsigned char)content[0] == 0xEF &&
+			(unsigned char)content[1] == 0xBB &&
+			(unsigned char)content[2] == 0xBF)
 		content = content.substr(3);
 	
 	stringstream ss(content);
@@ -545,7 +554,6 @@ void CheckMessages()
 			string error_sys = utf8_to_system(error_msg);
 			string title_sys = utf8_to_system("错误");
 			MessageBoxA(NULL, error_sys.c_str(), title_sys.c_str(), MB_OK | MB_ICONERROR);
-			g_running = false;
 		}
 	}
 	g_checking = false;
@@ -559,7 +567,6 @@ void CheckMessagesLoop()
 		CheckMessages();
 		this_thread::sleep_for(chrono::seconds(g_check_interval));
 	}
-	WriteLog("退出");
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -576,8 +583,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		break;
 		
 	case WM_TRAYICON:
-		if (lParam == WM_RBUTTONUP)
+		if (lParam == WM_LBUTTONUP || lParam == NIN_SELECT || lParam == 1029)
+		{
+			ShellExecuteA(NULL, "open", ("https://www.luogu.com.cn/chat?uid=" + to_string(idtoname[wParam])).c_str(), NULL, NULL, SW_SHOW);
+		}
+		else if (lParam == WM_RBUTTONUP)
+		{
 			ShowContextMenu(hwnd);
+		}
 		break;
 		
 	case WM_COMMAND:
@@ -634,8 +647,8 @@ void ShowContextMenu(HWND hwnd)
 {
 	HMENU hMenu = CreatePopupMenu();
 	
-    string str_readme = utf8_to_system("使用说明");
-    string str_github = utf8_to_system("手动更新");
+	string str_readme = utf8_to_system("使用说明");
+	string str_github = utf8_to_system("手动更新");
 	string str_show_log = utf8_to_system("打开日志");
 	string str_settings = utf8_to_system("打开配置");
 	string str_about = utf8_to_system("关于");
@@ -661,13 +674,13 @@ void ShowContextMenu(HWND hwnd)
 void ShowAboutDialog(HWND hwnd)
 {
 	string msg = "lg-reminder\n\n"
-                 "@version " + string(lg_reminder_version) + "\n"
-                 "@author " + string(lg_reminder_author) + "\n"
-                 "@license MIT\n"
-                 "Copyright 2026 (c) " + string(lg_reminder_author) + "\n"
-                 "本脚本由洛谷 @" + string(lg_reminder_author) + " 开发\n"
-                 "感谢洛谷 @PenaltyKing 提供的思路及建议\n\n"
-	             "在 Windows 通知弹窗提醒洛谷私信\n感谢使用！";
+				 "@version " + string(lg_reminder_version) + "\n"
+				 "@author " + string(lg_reminder_author) + "\n"
+				 "@license MIT\n"
+				 "Copyright 2026 (c) " + string(lg_reminder_author) + "\n"
+				 "本脚本由洛谷 @" + string(lg_reminder_author) + " 开发\n"
+				 "感谢洛谷 @PenaltyKing 提供的思路及建议\n\n"
+				 "在 Windows 通知弹窗提醒洛谷私信\n感谢使用！";
 	string title = "关于 lg-reminder";
 	
 	string msg_sys = utf8_to_system(msg);
@@ -704,24 +717,34 @@ void ShowCfgDialog(HWND hwnd)
 	}
 	
 	ShellExecuteA(hwnd, "open", cfgPath, NULL, NULL, SW_SHOW);
+
+	g_running = false;
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+	HANDLE hMutex = CreateMutexA(NULL, TRUE, MUTEX_NAME);
+	if (GetLastError() == ERROR_ALREADY_EXISTS)
+	{
+		CloseHandle(hMutex);
+		return 0;
+	}
+
 	if (!cfg(g_cookie, g_uid, g_check_interval))
 	{
 		string error_msg = "错误：配置加载失败\n\n请编辑 config.txt 文件，填入您的 cookie\n\n"
-		                   "如何获取 cookie：\n"
-		                   "1. 在浏览器中登录洛谷并进入私信页面\n"
-		                   "2. 按 F12 打开开发者工具\n"
-		                   "3. 切换到\"网络\"标签，刷新页面\n"
-		                   "4. 点进名称是\"chat\"的请求，往下翻，在 Request Headers 中找到\"Cookie\"\n"
-		                   "5. 复制完整 cookie 内容到 config.txt";
+						   "如何获取 cookie：\n"
+						   "1. 在浏览器中登录洛谷并进入私信页面\n"
+						   "2. 按 F12 打开开发者工具\n"
+						   "3. 切换到\"网络\"标签，刷新页面\n"
+						   "4. 点进名称是\"chat\"的请求，往下翻，在 Request Headers 中复制\"Cookie\"\n"
+						   "5. 将 cookie（注意是完整 cookie，不是只包含 __client_id）填入 config.txt";
 		
 		string error_sys = utf8_to_system(error_msg);
 		string title_sys = utf8_to_system("错误");
 		
 		MessageBoxA(NULL, error_sys.c_str(), title_sys.c_str(), MB_OK | MB_ICONERROR);
+		CloseHandle(hMutex);
 		return 1;
 	}
 	
@@ -745,9 +768,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	check_thread.detach();
 	
 	string start_msg = "lg-reminder " + string(lg_reminder_version) + " 开始监听...\n\n"
-	                   "轮询间隔: " + to_string(g_check_interval) + " 秒\n"
-	                   "历史消息: " + to_string(g_history_ids.size()) + " 条\n\n"
-	                   "程序已在后台运行，可在系统托盘找到图标";
+					   "轮询间隔: " + to_string(g_check_interval) + " 秒\n"
+					   "历史消息: " + to_string(g_history_ids.size()) + " 条\n\n"
+					   "程序已在后台运行，可在系统托盘找到图标";
 	
 	string start_sys = utf8_to_system(start_msg);
 	string title_sys = utf8_to_system("lg-reminder");
@@ -761,6 +784,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		DispatchMessage(&msg);
 	}
 	
+	WriteLog("退出");
 	RemoveTrayIcon();
+	CloseHandle(hMutex);
 	return 0;
 }
