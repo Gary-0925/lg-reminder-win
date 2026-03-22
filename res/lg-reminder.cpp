@@ -18,6 +18,7 @@ Copyright 2026 (c) Gary0
 
 #include <iostream>
 #include <string>
+#include <map>
 #include <windows.h>
 #include <winhttp.h>
 #include <fstream>
